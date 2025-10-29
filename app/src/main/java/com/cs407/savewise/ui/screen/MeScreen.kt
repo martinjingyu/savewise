@@ -21,6 +21,7 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import com.cs407.savewise.viewModel.MeViewModel
 
 /* --------------------- ROUTES --------------------- */
 private object MeRoutes {

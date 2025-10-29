@@ -1,4 +1,4 @@
-package com.cs407.savewise.ui.screen
+package com.cs407.savewise.viewModel
 
 import androidx.lifecycle.ViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
