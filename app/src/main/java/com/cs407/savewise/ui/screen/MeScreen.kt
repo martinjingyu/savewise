@@ -29,6 +29,10 @@ private object MeRoutes {
     const val Profile = "me/profile"
     const val Voice = "me/voice"
     const val Storage = "me/storage"
+    const val ProfilePicture = "me/profile/picture"
+    const val ProfileName = "me/profile/name"
+    const val ProfileRegion = "me/profile/region"
+    const val ProfilePassword = "me/profile/password"
 }
 
 /* --------------------- ENTRY --------------------- */
@@ -44,7 +48,31 @@ fun MeScreen() {
                 onOpenVoice = { nav.navigate(MeRoutes.Voice) }
             )
         }
-        composable(MeRoutes.Profile) { ProfileScreen(vm = vm, onBack = { nav.navigateUp() }) }
+        composable(MeRoutes.Profile) {
+            ProfileScreen(
+                vm = vm,
+                onBack = { nav.navigateUp() },
+                onOpenProfilePicture = { nav.navigate(MeRoutes.ProfilePicture) },
+                onOpenName = { nav.navigate(MeRoutes.ProfileName) },
+                onOpenRegion = { nav.navigate(MeRoutes.ProfileRegion) },
+                onOpenPassword = { nav.navigate(MeRoutes.ProfilePassword) }
+                )
+        }
+
+        // NEW profile sub-screens
+        composable(MeRoutes.ProfilePicture) {
+            ProfilePictureScreen(vm = vm, onBack = { nav.navigateUp() })
+        }
+        composable(MeRoutes.ProfileName) {
+            ProfileNameScreen(vm = vm, onBack = { nav.navigateUp() })
+        }
+        composable(MeRoutes.ProfileRegion) {
+            ProfileRegionScreen(vm = vm, onBack = { nav.navigateUp() })
+        }
+        composable(MeRoutes.ProfilePassword) {
+            ChangePasswordScreen(vm = vm, onBack = { nav.navigateUp() })
+        }
+
         composable(MeRoutes.Voice) {
             VoiceInputScreen(
                 vm = vm,
@@ -64,11 +92,10 @@ private fun MeRootScreen(
 ) {
     val rows = listOf(
         "Voice Input" to onOpenVoice,
-        "Function 2" to {},
-        "Function 3" to {},
-        "Function 4" to {},
-        "Function 5" to {},
-        "Function 6" to {}
+        "Notifications" to {},
+        "Appearance & Theme" to {},
+        "Data & Backup" to {},
+        "Help, Feedback & About" to {}
     )
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
@@ -95,7 +122,14 @@ private fun MeRootScreen(
 
 /* --------------------- PROFILE --------------------- */
 @Composable
-private fun ProfileScreen(vm: MeViewModel, onBack: () -> Unit) {
+private fun ProfileScreen(
+    vm: MeViewModel,
+    onBack: () -> Unit,
+    onOpenProfilePicture: () -> Unit,
+    onOpenName: () -> Unit,
+    onOpenRegion: () -> Unit,
+    onOpenPassword: () -> Unit
+    ) {
     val state by vm.uiState.collectAsState()
     Scaffold(
         topBar = {
@@ -106,10 +140,109 @@ private fun ProfileScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     ) { padding ->
         LazyColumn(Modifier.padding(padding)) {
-            item { SettingsRow(title = "Profile picture", onClick = { /* image picker later */ }) }
-            item { SettingsRow(title = "Name", onClick = { /* dialog to edit later */ }) }
-            item { SettingsRow(title = "Region", onClick = { /* region picker later */ }) }
-            item { SettingsRow(title = "Change your password", onClick = { /* navigate later */ }) }
+            item { SettingsRow(title = "Profile picture", onClick =  onOpenProfilePicture ) }
+            item { SettingsRow(title = "Name", onClick =  onOpenName) }
+            item { SettingsRow(title = "Region", onClick =  onOpenRegion ) }
+            item { SettingsRow(title = "Change your password", onClick =  onOpenPassword ) }
+        }
+    }
+}
+@Composable
+private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Profile picture") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("TODO: image picker screen")
+        }
+    }
+}
+
+@Composable
+private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Name") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("TODO: edit name UI")
+        }
+    }
+}
+
+@Composable
+private fun ProfileRegionScreen(vm: MeViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Region") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("TODO: pick region UI")
+        }
+    }
+}
+
+@Composable
+private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Change password") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Box(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
+            contentAlignment = Alignment.Center
+        ) {
+            Text("TODO: change password UI")
         }
     }
 }
@@ -191,11 +324,11 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
 /* --------------------- REUSABLE ROWS --------------------- */
 @Composable
 private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Unit) {
-    val bg = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f)
+
     Surface(
+        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
         modifier = Modifier
             .fillMaxWidth()
-            .background(bg)
             .clickable(onClick = onClick)
     ) {
         Row(
