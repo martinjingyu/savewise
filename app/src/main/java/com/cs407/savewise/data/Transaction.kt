@@ -5,5 +5,5 @@ data class Transaction(
     val detail: String,
     val spend: Double,
     val date: String,
-    val time: String
+    val time: String,
 )
