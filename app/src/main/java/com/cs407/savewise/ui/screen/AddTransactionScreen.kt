@@ -50,12 +50,15 @@ import java.util.Date
 import java.util.Locale
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import android.app.TimePickerDialog
+import com.cs407.savewise.data.Transaction
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun AddTransaction(
     onBackClicked: () -> Unit = {},
-    onProfileClicked: () -> Unit = {}
+    onProfileClicked: () -> Unit = {},
+    onAddClicked: (Transaction) -> Unit = {}
+
 ) {
     Surface(
         color = Color.Transparent
@@ -85,7 +88,7 @@ fun AddTransaction(
                         }
                     },
                     actions = {
-                        IconButton(onClick = {onProfileClicked}) {
+                        IconButton(onClick = onProfileClicked) {
                             Icon(
                                 imageVector = Icons.Default.AccountCircle,
                                 contentDescription = "Profile"
@@ -215,7 +218,16 @@ fun AddTransaction(
                     Spacer(modifier = Modifier.width(16.dp))
 
                     Button(
-                        onClick = { /* TODO: Add transaction logic */ },
+                        onClick = {
+                            val newTransaction = Transaction(
+                                subject = subject,
+                                detail = detail,
+                                spend = spend.toDoubleOrNull() ?: 0.0,
+                                date = date,
+                                time = time
+                            )
+                            onAddClicked(newTransaction)
+                        },
                         colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFEADDFF)), // Lighter purple
                         modifier = Modifier.weight(1f)
                     ) {
