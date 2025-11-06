@@ -103,7 +103,6 @@ fun AppMain(
                     }
                 )
             }
-            composable(Screen.Home.route) { HomeScreen() }
             composable(Screen.Home.route) {
                 HomeScreen(onSettingClick = {
                     navController.navigate(Screen.Me.route) {
