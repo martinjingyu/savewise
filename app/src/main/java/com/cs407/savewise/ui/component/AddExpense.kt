@@ -1,5 +1,6 @@
 package com.cs407.savewise.ui.component
 
+import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -30,6 +31,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.cs407.savewise.model.ExpenseRecord
 import java.text.SimpleDateFormat
+import java.util.Calendar
 import java.util.Date
 import java.util.Locale
 
@@ -45,10 +47,12 @@ fun AddExpenseDialog(
     var category by remember { mutableStateOf(expense.category) }
     var date by remember { mutableStateOf(expense.date) }
     var amountText by remember { mutableStateOf(expense.amount.toString()) }
-
-
     var showDatePicker by remember { mutableStateOf(false) }
     val datePickerState = rememberDatePickerState()
+
+    var time by remember { mutableStateOf("") }
+    var showTimePicker by remember { mutableStateOf(false) }
+    val context = LocalContext.current
 
 
     AlertDialog(
@@ -102,7 +106,30 @@ fun AddExpenseDialog(
                         disabledTrailingIconColor = Color.Gray
                     )
                 )
-
+                OutlinedTextField(
+                    value = time,
+                    onValueChange = { time = it },
+                    label = { Text("Time") },
+                    placeholder = { Text("--:--") },
+                    trailingIcon = {
+                        Icon(
+                            imageVector = Icons.Default.ArrowDropDown,
+                            contentDescription = "Select Time"
+                        )
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { showTimePicker = true },
+                    readOnly = true, // Typically opened by a dialog
+                    enabled = false,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        disabledTextColor = Color.Black,
+                        disabledBorderColor = Color.Gray,
+                        disabledPlaceholderColor = Color.Gray,
+                        disabledLabelColor = Color.Gray,
+                        disabledTrailingIconColor = Color.Gray
+                    )
+                )
             }
             if (showDatePicker) {
                 DatePickerDialog(
@@ -132,6 +159,22 @@ fun AddExpenseDialog(
                 ) {
                     DatePicker(state = datePickerState)
                 }
+            }
+            if (showTimePicker) {
+                val calendar = Calendar.getInstance()
+                val hour = calendar.get(Calendar.HOUR_OF_DAY)
+                val minute = calendar.get(Calendar.MINUTE)
+
+                TimePickerDialog(
+                    context,
+                    { _, selectedHour: Int, selectedMinute: Int ->
+                        time = String.format("%02d:%02d", selectedHour, selectedMinute)
+                        showTimePicker = false
+                    },
+                    hour,
+                    minute,
+                    true // Use false for 12-hour format with AM/PM
+                ).show()
             }
         },
         confirmButton = {
