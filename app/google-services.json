@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "464758465029",
+    "project_id": "savewise-afb05",
+    "storage_bucket": "savewise-afb05.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:464758465029:android:87b4fafce9deff607bf26c",
+        "android_client_info": {
+          "package_name": "com.cs407.savewise"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyB2UtMTi3SL1qv8WWKrvawcTwzcYSsmZFE"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

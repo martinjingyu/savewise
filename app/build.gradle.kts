@@ -2,6 +2,11 @@ plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
+
+    kotlin("plugin.serialization") version "2.2.20"
+
+    id("com.google.devtools.ksp")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -10,12 +15,15 @@ android {
 
     defaultConfig {
         applicationId = "com.cs407.savewise"
-        minSdk = 34
+        minSdk = 36
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        vectorDrawables {
+            useSupportLibrary = true
+        }
     }
 
     buildTypes {
@@ -36,6 +44,11 @@ android {
     }
     buildFeatures {
         compose = true
+    }
+    packaging {
+        resources {
+            excludes += "/META-INF/{AL2.0,LGPL2.1}"
+        }
     }
 }
 
@@ -65,4 +78,26 @@ dependencies {
     debugImplementation(libs.androidx.compose.ui.test.manifest)
 
     implementation("androidx.core:core-splashscreen:1.0.1")
+
+
+    implementation(libs.androidx.datastore.preferences)
+    //dependencies for firebase
+
+    implementation(libs.androidx.material.icons.extended)
+
+    implementation(libs.androidx.room.runtime)
+    // To use Kotlin Symbol Processing (KSP)
+
+    implementation(libs.androidx.room.ktx)
+
+    implementation(libs.androidx.navigation.runtime.ktx)
+    implementation(libs.androidx.navigation.compose)
+
+    implementation(libs.kotlinx.serialization.json)
+
+    implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
+    implementation("com.google.firebase:firebase-auth")
+
+    // To use Kotlin Symbol Processing (KSP)
+    ksp(libs.androidx.room.compiler)
 }
