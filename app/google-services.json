@@ -1,21 +1,21 @@
 {
   "project_info": {
-    "project_number": "981075678709",
-    "project_id": "noteapp-ddb49",
-    "storage_bucket": "noteapp-ddb49.firebasestorage.app"
+    "project_number": "464758465029",
+    "project_id": "savewise-afb05",
+    "storage_bucket": "savewise-afb05.firebasestorage.app"
   },
   "client": [
     {
       "client_info": {
-        "mobilesdk_app_id": "1:981075678709:android:63331b7ce80929acc6bcbc",
+        "mobilesdk_app_id": "1:464758465029:android:87b4fafce9deff607bf26c",
         "android_client_info": {
-          "package_name": "com.cs407.noteapp"
+          "package_name": "com.cs407.savewise"
         }
       },
       "oauth_client": [],
       "api_key": [
         {
-          "current_key": "AIzaSyC0wNxPXV3Fp9nmmIMlwuitkyfacRsA2uM"
+          "current_key": "AIzaSyB2UtMTi3SL1qv8WWKrvawcTwzcYSsmZFE"
         }
       ],
       "services": {

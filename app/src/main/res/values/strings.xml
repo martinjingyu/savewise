@@ -1,3 +1,19 @@
 <resources>
     <string name="app_name">Savewise</string>
+    <string name="email_hint">Enter Email</string>
+    <string name="password_hint">Enter Password</string>
+    <string name="name_hint">Enter Name</string>
+    <string name="login_button">Log In or Sign Up</string>
+    <string name="confirm_button">Confirm</string>
+    <string name="preferenceKV">preferenceKV</string>
+    <string name="invalid_email">Invalid Email Format</string>
+    <string name="invalid_password">Password should contain at least one lowercase letter, one uppercase letter, and one digit</string>
+    <string name="short_password">Password is too short</string>
+    <string name="empty_email">Email is empty</string>
+    <string name="empty_password">Password is empty</string>
+    <string name="Email">Enter Email</string>
+    <string name="Password">Enter Password</string>
+    <string name="Name">Enter Name</string>
+    <string name="login_screen">LoginScreen</string>
+    <string name="note_list_screen">NoteListScreen</string>
 </resources>
