@@ -69,7 +69,7 @@ class ViewModel(application: Application) : AndroidViewModel(application) {
                 name = newName,
                 onSuccess = {
                     _userState.value = _userState.value.copy(name = newName)
-                    _navigateTo.value = NoteScreen.NoteList.name
+                    _navigateTo.value = Screen.Home.route
                 },
                 onFailure = { exception ->
                     Log.e("UserViewModel", "Failed to update name", exception)
