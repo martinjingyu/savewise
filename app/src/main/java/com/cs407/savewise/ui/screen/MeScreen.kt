@@ -24,6 +24,8 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import com.cs407.savewise.viewModel.MeViewModel
+import androidx.compose.foundation.shape.RoundedCornerShape
+
 
 /* --------------------- ROUTES --------------------- */
 private object MeRoutes {
@@ -36,12 +38,20 @@ private object MeRoutes {
     const val ProfileRegion = "me/profile/region"
     const val ProfilePassword = "me/profile/password"
     const val Notifications = "me/Notifications"
+    const val AppearanceAndTheme = "me/AppearanceAndTheme"
+    const val DataAndBackup = "me/DataAndBackup"
+    const val HFA = "me/HFA"
 }
 
 private enum class NotificationMode {
     AlwaysOn,
     OnlyWhenRunning,
     AlwaysOff
+}
+
+private enum class AppThemeMode {
+    Light,
+    Dark
 }
 
 /* --------------------- ENTRY --------------------- */
@@ -55,7 +65,10 @@ fun MeScreen() {
             MeRootScreen(
                 onOpenProfile = { nav.navigate(MeRoutes.Profile) },
                 onOpenVoice = { nav.navigate(MeRoutes.Voice) },
-                onOpenNotifications = { nav.navigate(MeRoutes.Notifications)}
+                onOpenNotifications = { nav.navigate(MeRoutes.Notifications)},
+                onOpenAppearanceAndTheme = {nav.navigate(MeRoutes.AppearanceAndTheme)},
+                onOpenDataAndBackup = {nav.navigate(MeRoutes.DataAndBackup)},
+                onOpenHFA = {nav.navigate(MeRoutes.HFA)}
             )
         }
         composable(MeRoutes.Profile) {
@@ -96,6 +109,21 @@ fun MeScreen() {
                 onBack = { nav.navigateUp()}
             )
         }
+        composable(MeRoutes.AppearanceAndTheme){
+            AppearanceAndThemeScreen(
+                onBack = { nav.navigateUp()}
+            )
+        }
+        composable(MeRoutes.DataAndBackup){
+            DataAndBackupScreen(
+                onBack = { nav.navigateUp()}
+            )
+        }
+        composable(MeRoutes.HFA){
+            HFAScreen(
+                onBack = { nav.navigateUp()}
+            )
+        }
     }
 }
 
@@ -104,14 +132,17 @@ fun MeScreen() {
 private fun MeRootScreen(
     onOpenProfile: () -> Unit,
     onOpenVoice: () -> Unit,
-    onOpenNotifications: () -> Unit
+    onOpenNotifications: () -> Unit,
+    onOpenAppearanceAndTheme:() -> Unit,
+    onOpenDataAndBackup:() -> Unit,
+    onOpenHFA:() -> Unit
 ) {
     val rows = listOf(
         "Voice Input" to onOpenVoice,
         "Notifications" to onOpenNotifications,
-        "Appearance & Theme" to {},
-        "Data & Backup" to {},
-        "Help, Feedback & About" to {}
+        "Appearance & Theme" to onOpenAppearanceAndTheme,
+        "Data & Backup" to onOpenDataAndBackup,
+        "Help, Feedback & About" to onOpenHFA
     )
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
@@ -512,6 +543,301 @@ private fun NotificationsScreen(onBack: () -> Unit) {
                         )
                     },
                     onClick = { mode = NotificationMode.AlwaysOff }
+                )
+            }
+        }
+    }
+}
+
+
+@Composable
+private fun AppearanceAndThemeScreen(onBack: () -> Unit) {
+    // Default is Light mode
+    var themeMode by remember { mutableStateOf(AppThemeMode.Light) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Appearance & Theme") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+            // Light mode
+            item {
+                SettingsRow(
+                    title = "Light",
+                    trailing = {
+                        RadioButton(
+                            selected = themeMode == AppThemeMode.Light,
+                            onClick = { themeMode = AppThemeMode.Light }
+                        )
+                    },
+                    onClick = { themeMode = AppThemeMode.Light }
+                )
+            }
+
+            // Dark mode
+            item {
+                SettingsRow(
+                    title = "Dark",
+                    trailing = {
+                        RadioButton(
+                            selected = themeMode == AppThemeMode.Dark,
+                            onClick = { themeMode = AppThemeMode.Dark }
+                        )
+                    },
+                    onClick = { themeMode = AppThemeMode.Dark }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DataAndBackupScreen(onBack: () -> Unit) {
+    var autoBackupEnabled by remember { mutableStateOf(false) }
+    var wifiOnly by remember { mutableStateOf(true) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Data & Backup") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
+        ) {
+
+            // ---- Backup info + button ----
+            item {
+                Text(
+                    text = "Backup",
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Spacer(Modifier.height(4.dp))
+                Text(
+                    text = "Last backup: Never",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Spacer(Modifier.height(12.dp))
+                Button(
+                    onClick = { /* TODO: trigger backup later */ }
+                ) {
+                    Text("Back up now")
+                }
+            }
+
+            item { Spacer(Modifier.height(24.dp)) }
+
+            // ---- Auto backup switches ----
+            item {
+                Text(
+                    text = "Auto backup",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Enable auto backup",
+                    trailing = {
+                        Switch(
+                            checked = autoBackupEnabled,
+                            onCheckedChange = { autoBackupEnabled = it }
+                        )
+                    },
+                    onClick = { autoBackupEnabled = !autoBackupEnabled }
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Wi-Fi only",
+                    trailing = {
+                        Switch(
+                            checked = wifiOnly,
+                            onCheckedChange = { wifiOnly = it }
+                        )
+                    },
+                    onClick = { wifiOnly = !wifiOnly }
+                )
+            }
+
+            item { Spacer(Modifier.height(32.dp)) }
+
+            // ---- Danger zone ----
+            item {
+
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { /* TODO: confirm & delete data later */ }
+                ) {
+                    Text(
+                        text = "Delete all local data",
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun HFAScreen(onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Help, Feedback & About") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+
+            // ---- About card ----
+            item {
+                Surface(
+                    shape = RoundedCornerShape(16.dp),
+                    tonalElevation = 2.dp,
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Text(
+                            text = "SaveWise",
+                            style = MaterialTheme.typography.titleLarge
+                        )
+                        Spacer(Modifier.height(4.dp))
+                        Text(
+                            text = "Version 1.0.0",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        Spacer(Modifier.height(8.dp))
+                        Text(
+                            text = "A simple app to help you track and manage your spending.",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // ---- Help section ----
+            item {
+                Text(
+                    text = "Help",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "How to use this app",
+                    onClick = { /* TODO: open help later */ }
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "FAQ",
+                    onClick = { /* TODO: open FAQ later */ }
+                )
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // ---- Feedback section ----
+            item {
+                Text(
+                    text = "Feedback",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Send feedback",
+                    onClick = { /* TODO: open feedback form/email later */ }
+                )
+            }
+
+            item { Spacer(Modifier.height(16.dp)) }
+
+            // ---- About / legal section ----
+            item {
+                Text(
+                    text = "About",
+                    style = MaterialTheme.typography.titleMedium
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Developer & contact",
+                    onClick = { /* TODO: show contact info screen */ }
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Privacy policy",
+                    onClick = { /* TODO: open privacy policy */ }
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Terms of service",
+                    onClick = { /* TODO: open terms */ }
+                )
+            }
+
+            item {
+                SettingsRow(
+                    title = "Open source licenses",
+                    onClick = { /* TODO: open licenses */ }
                 )
             }
         }
