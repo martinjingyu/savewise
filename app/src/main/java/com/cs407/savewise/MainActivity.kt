@@ -39,7 +39,18 @@ fun AppMain() {
             startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
-            composable(Screen.Home.route) { HomeScreen() }
+            composable(Screen.Home.route) {
+                HomeScreen(onSettingClick = {
+                    navController.navigate(Screen.Me.route) {
+                        popUpTo(navController.graph.startDestinationId) { saveState = true }
+                        launchSingleTop = true
+                        restoreState = true
+                    }
+                })
+            }
+
+
+
             composable(Screen.Expense.route) { ExpenseScreen() }
             composable(Screen.Me.route) { MeScreen() }
         }
