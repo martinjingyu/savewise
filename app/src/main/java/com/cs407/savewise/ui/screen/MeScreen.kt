@@ -21,6 +21,8 @@ import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.*
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import com.cs407.savewise.viewModel.MeViewModel
 
 /* --------------------- ROUTES --------------------- */
@@ -33,6 +35,13 @@ private object MeRoutes {
     const val ProfileName = "me/profile/name"
     const val ProfileRegion = "me/profile/region"
     const val ProfilePassword = "me/profile/password"
+    const val Notifications = "me/Notifications"
+}
+
+private enum class NotificationMode {
+    AlwaysOn,
+    OnlyWhenRunning,
+    AlwaysOff
 }
 
 /* --------------------- ENTRY --------------------- */
@@ -45,7 +54,8 @@ fun MeScreen() {
         composable(MeRoutes.Root) {
             MeRootScreen(
                 onOpenProfile = { nav.navigate(MeRoutes.Profile) },
-                onOpenVoice = { nav.navigate(MeRoutes.Voice) }
+                onOpenVoice = { nav.navigate(MeRoutes.Voice) },
+                onOpenNotifications = { nav.navigate(MeRoutes.Notifications)}
             )
         }
         composable(MeRoutes.Profile) {
@@ -81,6 +91,11 @@ fun MeScreen() {
             )
         }
         composable(MeRoutes.Storage) { RecordingStorageScreen(vm = vm, onBack = { nav.navigateUp() }) }
+        composable(MeRoutes.Notifications) {
+            NotificationsScreen(
+                onBack = { nav.navigateUp()}
+            )
+        }
     }
 }
 
@@ -88,11 +103,12 @@ fun MeScreen() {
 @Composable
 private fun MeRootScreen(
     onOpenProfile: () -> Unit,
-    onOpenVoice: () -> Unit
+    onOpenVoice: () -> Unit,
+    onOpenNotifications: () -> Unit
 ) {
     val rows = listOf(
         "Voice Input" to onOpenVoice,
-        "Notifications" to {},
+        "Notifications" to onOpenNotifications,
         "Appearance & Theme" to {},
         "Data & Backup" to {},
         "Help, Feedback & About" to {}
@@ -155,22 +171,55 @@ private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
                 title = { Text("Profile picture") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        Box(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
+                .padding(padding)
+                .padding(horizontal = 24.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("TODO: image picker screen")
+            // Placeholder picture (big circular icon)
+            Box(
+                modifier = Modifier
+                    .size(120.dp)
+                    .clip(CircleShape)
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.15f)
+                    ),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    imageVector = Icons.Outlined.AccountCircle,
+                    contentDescription = "Profile picture placeholder",
+                    tint = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.size(72.dp)
+                )
+            }
+
+            Spacer(modifier = Modifier.height(24.dp))
+
+            // Edit button
+            Button(
+                onClick = {
+                    // TODO: open image picker or camera later
+                }
+            ) {
+                Text("Edit profile picture")
+            }
         }
     }
 }
+
 
 @Composable
 private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
@@ -180,22 +229,47 @@ private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
                 title = { Text("Name") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        Box(
+
+        // For now we just keep the name locally.
+        // Later you can initialize this from vm.uiState if you add a name field there.
+        var name by remember { mutableStateOf("User Name") }
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            Text("TODO: edit name UI")
+            OutlinedTextField(
+                value = name,
+                onValueChange = { name = it },
+                label = { Text("Name") },
+                singleLine = true,
+                modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(24.dp))
+
+            Button(
+                onClick = { /* TODO: save name via ViewModel later */ },
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Save")
+            }
         }
     }
 }
+
 
 @Composable
 private fun ProfileRegionScreen(vm: MeViewModel, onBack: () -> Unit) {
@@ -230,22 +304,67 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
                 title = { Text("Change password") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
                     }
                 }
             )
         }
     ) { padding ->
-        Box(
+
+        // In the future you can get this from vm.uiState
+        val initialPassword = "********"   // placeholder
+        var password by remember { mutableStateOf(initialPassword) }
+        var showPassword by remember { mutableStateOf(false) }
+
+        val canSave = password != initialPassword && password.isNotBlank()
+
+        Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
+                .padding(padding)
+                .padding(16.dp),
+            verticalArrangement = Arrangement.Top
         ) {
-            Text("TODO: change password UI")
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = password,
+                    onValueChange = { password = it },
+                    label = { Text("Password") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    visualTransformation = if (showPassword)
+                        VisualTransformation.None
+                    else
+                        PasswordVisualTransformation()
+                )
+
+                Spacer(Modifier.width(8.dp))
+
+                TextButton(onClick = { showPassword = !showPassword }) {
+                    Text(if (showPassword) "Hide" else "Show")
+                }
+            }
+
+            Spacer(Modifier.height(24.dp))
+
+            Button(
+                onClick = { /* TODO: implement save */ },
+                enabled = canSave,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Save")
+            }
         }
     }
 }
+
 
 /* --------------------- VOICE INPUT --------------------- */
 @Composable
@@ -320,6 +439,85 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     }
 }
+
+
+
+@Composable
+private fun NotificationsScreen(onBack: () -> Unit) {
+    var mode by remember { mutableStateOf(NotificationMode.OnlyWhenRunning) }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Notification") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+        ) {
+
+            // Always on
+            item {
+                SettingsRow(
+                    title = "Always on",
+                    trailing = {
+                        Switch(
+                            checked = mode == NotificationMode.AlwaysOn,
+                            onCheckedChange = { checked ->
+                                if (checked) mode = NotificationMode.AlwaysOn
+                            }
+                        )
+                    },
+                    onClick = { mode = NotificationMode.AlwaysOn }
+                )
+            }
+
+            // Only on when running
+            item {
+                SettingsRow(
+                    title = "Only on when running",
+                    trailing = {
+                        Switch(
+                            checked = mode == NotificationMode.OnlyWhenRunning,
+                            onCheckedChange = { checked ->
+                                if (checked) mode = NotificationMode.OnlyWhenRunning
+                            }
+                        )
+                    },
+                    onClick = { mode = NotificationMode.OnlyWhenRunning }
+                )
+            }
+
+            // Always off
+            item {
+                SettingsRow(
+                    title = "Always off",
+                    trailing = {
+                        Switch(
+                            checked = mode == NotificationMode.AlwaysOff,
+                            onCheckedChange = { checked ->
+                                if (checked) mode = NotificationMode.AlwaysOff
+                            }
+                        )
+                    },
+                    onClick = { mode = NotificationMode.AlwaysOff }
+                )
+            }
+        }
+    }
+}
+
 
 /* --------------------- REUSABLE ROWS --------------------- */
 @Composable
