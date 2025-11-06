@@ -16,11 +16,17 @@ import androidx.navigation.compose.*
 import com.cs407.savewise.ui.component.BottomNavBar
 import com.cs407.savewise.ui.component.Screen
 import com.cs407.savewise.ui.screen.*
+import com.google.firebase.Firebase
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.auth
 
 
 class MainActivity : ComponentActivity() {
+    private lateinit var auth: FirebaseAuth
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        auth = Firebase.auth
         setContent {
             AppMain()
         }
