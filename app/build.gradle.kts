@@ -49,9 +49,9 @@ dependencies {
     implementation(libs.androidx.compose.ui.graphics)
     implementation(libs.androidx.compose.ui.tooling.preview)
     implementation(libs.androidx.compose.material3)
-    implementation("androidx.compose.material:material-icons-extended:1.5.3")
     implementation("androidx.core:core-ktx:1.12.0")
     implementation("androidx.activity:activity-compose:1.8.0")
+    implementation("androidx.compose.material:material-icons-extended:1.5.3")
     implementation("androidx.compose.ui:ui:1.5.3")
     implementation("androidx.compose.material3:material3:1.1.2")
     implementation("androidx.navigation:navigation-compose:2.7.3")
@@ -62,11 +62,6 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
-    implementation(platform("androidx.compose:compose-bom:latest.release"))
-    implementation("androidx.compose.material:material-icons-extended")
-    implementation(platform("androidx.compose:compose-bom:latest.release"))
-    implementation("androidx.compose.material3:material3")
-    implementation("androidx.navigation:navigation-compose:2.7.7")
-    implementation("androidx.compose.material:material-icons-extended") // for chevrons/back icon
 
+    implementation("androidx.core:core-splashscreen:1.0.1")
 }
