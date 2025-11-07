@@ -25,6 +25,7 @@ import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.ui.component.AddExpenseDialog
 import com.cs407.savewise.ui.component.AnimatedRecordButton
 import com.cs407.savewise.ui.component.ExpenseList
+import com.cs407.savewise.ui.component.MonthlyExpenseChart
 import com.cs407.savewise.viewModel.HomeViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -83,23 +84,13 @@ fun HomeScreen(
                 }
             }
 
-            // 麦克风输入按钮
+
             item {
-                AnimatedRecordButton()
+                AnimatedRecordButton(onFinished = { showAddDialog = true })
             }
 
-            // 月度图表占位
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(200.dp)
-                        .padding(16.dp)
-                        .background(Color(0xAA11AF11)),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text("Monthly Pie Chart Placeholder")
-                }
+                MonthlyExpenseChart(expenses = expenses)
             }
 
             // 最近支出

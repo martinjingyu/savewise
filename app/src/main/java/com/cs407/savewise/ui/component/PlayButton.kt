@@ -30,7 +30,8 @@ import kotlinx.coroutines.delay
 fun AnimatedRecordButton(
     totalDuration: Int = 5000,
     onStart: () -> Unit = {},
-    onStop: () -> Unit = {}
+    onStop: () -> Unit = {},
+    onFinished: () -> Unit = {}
 ) {
     var isRecording by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
@@ -60,11 +61,11 @@ fun AnimatedRecordButton(
             if (isRecording) {
                 isRecording = false
                 onStop()
+                onFinished()
             }
         } else progress = 0f
     }
 
-    // 主布局：fillMaxWidth()
     Box(
         modifier = Modifier
             .fillMaxWidth()
@@ -105,6 +106,7 @@ fun AnimatedRecordButton(
                 } else {
                     isRecording = false
                     onStop()
+                    onFinished()
                 }
             },
             shape = CircleShape,
