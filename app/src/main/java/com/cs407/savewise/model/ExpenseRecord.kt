@@ -1,5 +1,8 @@
 package com.cs407.savewise.model
 
+import kotlinx.serialization.Serializable
+
+@Serializable
 data class ExpenseRecord(
     val id: Long,
     val title: String,

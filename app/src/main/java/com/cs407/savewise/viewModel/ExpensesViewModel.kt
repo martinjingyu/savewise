@@ -1,9 +1,13 @@
 package com.cs407.savewise.viewModel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
+import androidx.lifecycle.viewModelScope
+import com.cs407.savewise.data.ExpenseStorage
 import com.cs407.savewise.model.ExpenseRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.launch
 
 data class ExpenseFilter(
     val query: String = "",
@@ -20,20 +24,32 @@ data class ExpensesUiState(
     val filter: ExpenseFilter = ExpenseFilter()
 )
 
-class ExpensesViewModel : ViewModel() {
-    private val _allExpenses = MutableStateFlow(sampleExpenses())
+class ExpensesViewModel(application: Application) : AndroidViewModel(application) {
+    private val storage = ExpenseStorage(application.applicationContext)
+
+    private val _allExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     private val _filter = MutableStateFlow(ExpenseFilter())
 
     val filter: StateFlow<ExpenseFilter> = _filter
 
-    private val _expenseHistory = MutableStateFlow(_allExpenses.value.sortedByDescending { it.date })
+    private val _expenseHistory = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     val expenseHistory: StateFlow<List<ExpenseRecord>> = _expenseHistory
 
-    private val _filteredExpenses = MutableStateFlow(computeFiltered(_allExpenses.value, _filter.value))
+    private val _filteredExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     val filteredExpenses: StateFlow<List<ExpenseRecord>> = _filteredExpenses
 
-    private val _categories = MutableStateFlow(extractCategories(_allExpenses.value))
+    private val _categories = MutableStateFlow<Set<String>>(emptySet())
     val categories: StateFlow<Set<String>> = _categories
+
+    init {
+        viewModelScope.launch {
+            storage.seedDefaultsIfEmpty()
+            storage.expenses.collect { stored ->
+                _allExpenses.value = stored
+                recomputeDerived()
+            }
+        }
+    }
 
     fun setFilterQuery(query: String) {
         _filter.value = _filter.value.copy(query = query)
@@ -73,25 +89,26 @@ class ExpensesViewModel : ViewModel() {
     }
 
     fun addExpense(record: ExpenseRecord) {
-        _allExpenses.value = _allExpenses.value + record
-        recomputeDerived()
+        viewModelScope.launch {
+            storage.addExpense(record)
+        }
     }
 
     fun deleteExpense(id: Long) {
-        _allExpenses.value = _allExpenses.value.filterNot { it.id == id }
-        recomputeDerived()
+        viewModelScope.launch {
+            storage.deleteExpense(id)
+        }
     }
 
     fun updateExpense(updated: ExpenseRecord) {
-        _allExpenses.value = _allExpenses.value.map { if (it.id == updated.id) updated else it }
-        recomputeDerived()
+        viewModelScope.launch {
+            storage.updateExpense(updated)
+        }
     }
 
     fun adjustExpenseAmount(id: Long, newAmount: Double) {
-        _allExpenses.value = _allExpenses.value.map { rec ->
-            if (rec.id == id) rec.copy(amount = newAmount) else rec
-        }
-        recomputeDerived()
+        val target = getExpenseById(id) ?: return
+        updateExpense(target.copy(amount = newAmount))
     }
 
     fun adjustExpenseMeta(
@@ -100,14 +117,14 @@ class ExpensesViewModel : ViewModel() {
         newCategory: String? = null,
         newDate: String? = null
     ) {
-        _allExpenses.value = _allExpenses.value.map { rec ->
-            if (rec.id == id) rec.copy(
-                title = newTitle ?: rec.title,
-                category = newCategory ?: rec.category,
-                date = newDate ?: rec.date
-            ) else rec
-        }
-        recomputeDerived()
+        val target = getExpenseById(id) ?: return
+        updateExpense(
+            target.copy(
+                title = newTitle ?: target.title,
+                category = newCategory ?: target.category,
+                date = newDate ?: target.date
+            )
+        )
     }
 
     fun getExpenseById(id: Long): ExpenseRecord? = _allExpenses.value.firstOrNull { it.id == id }
@@ -135,14 +152,6 @@ class ExpensesViewModel : ViewModel() {
 
     private fun extractCategories(list: List<ExpenseRecord>): Set<String> =
         list.map { it.category }.toSet()
-
-    private fun sampleExpenses(): List<ExpenseRecord> = listOf(
-        ExpenseRecord(1, "Groceries at Market", "Shopping", 54.23, "2025-10-25"),
-        ExpenseRecord(2, "Lunch with friends", "Dining", 18.90, "2025-10-25"),
-        ExpenseRecord(3, "Gas Refill", "Transport", 42.10, "2025-10-24"),
-        ExpenseRecord(4, "Movie Night", "Entertainment", 12.50, "2025-10-22"),
-        ExpenseRecord(5, "Weekly Groceries", "Shopping", 76.45, "2025-10-20"),
-    )
 }
 
 // no-op
