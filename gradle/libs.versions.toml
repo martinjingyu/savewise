@@ -31,6 +31,7 @@ uiTestJunit4 = "1.9.2"
 navigationTesting = "2.9.5"
 material3 = "1.4.0"
 
+
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
 androidx-datastore = { module = "androidx.datastore:datastore", version.ref = "datastorePreferences" }
