@@ -1,8 +1,11 @@
 package com.cs407.savewise.ui.component
 
 import android.app.TimePickerDialog
+import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.text.KeyboardOptions
@@ -14,11 +17,14 @@ import androidx.compose.material3.DatePicker
 import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
+import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.TimeInput
 import androidx.compose.material3.rememberDatePickerState
+import androidx.compose.material3.rememberTimePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -27,8 +33,11 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Dialog
 import com.cs407.savewise.model.ExpenseRecord
 import java.text.SimpleDateFormat
 import java.util.Calendar
@@ -161,20 +170,47 @@ fun AddExpenseDialog(
                 }
             }
             if (showTimePicker) {
-                val calendar = Calendar.getInstance()
-                val hour = calendar.get(Calendar.HOUR_OF_DAY)
-                val minute = calendar.get(Calendar.MINUTE)
+                val cal = Calendar.getInstance()
+                if (time.isNotBlank()) {
+                    try {
+                        val sdf = SimpleDateFormat("HH:mm", Locale.getDefault())
+                        cal.time = sdf.parse(time) ?: Date()
+                    } catch (e: Exception) {
+                    }
+                }
+                val timePickerState = rememberTimePickerState(
+                    initialHour = cal.get(Calendar.HOUR_OF_DAY),
+                    initialMinute = cal.get(Calendar.MINUTE),
+                    is24Hour = true
+                )
 
-                TimePickerDialog(
-                    context,
-                    { _, selectedHour: Int, selectedMinute: Int ->
-                        time = String.format("%02d:%02d", selectedHour, selectedMinute)
-                        showTimePicker = false
-                    },
-                    hour,
-                    minute,
-                    true // Use false for 12-hour format with AM/PM
-                ).show()
+                Dialog(onDismissRequest = { showTimePicker = false }) {
+                    Column(
+                        modifier = Modifier
+                            .background(MaterialTheme.colorScheme.surface)
+                            .padding(16.dp)
+                    ) {
+                        TimeInput(
+                            state = timePickerState,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                        )
+                        Row(modifier = Modifier.fillMaxWidth()) {
+                            Spacer(modifier = Modifier.weight(1f))
+                            TextButton(onClick = { showTimePicker = false }) {
+                                Text("Cancel")
+                            }
+                            TextButton(
+                                onClick = {
+                                    time = String.format(Locale.getDefault(), "%02d:%02d", timePickerState.hour, timePickerState.minute)
+                                    showTimePicker = false
+                                },
+                            ) {
+                                Text("OK")
+                            }
+                        }
+                    }
+                }
             }
         },
         confirmButton = {
