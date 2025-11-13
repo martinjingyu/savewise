@@ -1,6 +1,7 @@
 package com.cs407.savewise.ui.screen
 
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
@@ -50,7 +51,7 @@ import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.ui.theme.SavewiseTheme
 import com.cs407.savewise.viewModel.ExpensesViewModel
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
 fun ExpenseScreen() {
     val vm: ExpensesViewModel = viewModel()
@@ -59,6 +60,7 @@ fun ExpenseScreen() {
     val categories by vm.categories.collectAsState(emptySet())
 
     var editing by remember { mutableStateOf<ExpenseRecord?>(null) }
+    var pendingDelete by remember { mutableStateOf<ExpenseRecord?>(null) }
     var showFilters by remember { mutableStateOf(false) }
 
     Scaffold(
@@ -91,7 +93,11 @@ fun ExpenseScreen() {
                 } else {
                     LazyColumn(modifier = Modifier.fillMaxSize()) {
                         items(expenses, key = { it.id }) { expense ->
-                            ExpenseRow(expense, onClick = { editing = expense })
+                            ExpenseRow(
+                                expense = expense,
+                                onClick = { editing = expense },
+                                onLongPress = { pendingDelete = expense }
+                            )
                             Divider()
                         }
                     }
@@ -107,6 +113,30 @@ fun ExpenseScreen() {
             onSave = { updated ->
                 vm.updateExpense(updated)
                 editing = null
+            }
+        )
+    }
+
+    pendingDelete?.let { expense ->
+        AlertDialog(
+            onDismissRequest = { pendingDelete = null },
+            title = { Text("Delete expense?") },
+            text = { Text("This will permanently remove \"${expense.title}\".") },
+            confirmButton = {
+                TextButton(onClick = {
+                    vm.deleteExpense(expense.id)
+                    pendingDelete = null
+                    if (editing?.id == expense.id) {
+                        editing = null
+                    }
+                }) {
+                    Text("Delete", color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { pendingDelete = null }) {
+                    Text("Cancel")
+                }
             }
         )
     }
@@ -132,11 +162,18 @@ fun ExpenseScreen() {
 }
 
 @Composable
-private fun ExpenseRow(expense: ExpenseRecord, onClick: (() -> Unit)? = null) {
+private fun ExpenseRow(
+    expense: ExpenseRecord,
+    onClick: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null
+) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(enabled = onClick != null) { onClick?.invoke() }
+            .combinedClickable(
+                onClick = { onClick?.invoke() },
+                onLongClick = { onLongPress?.invoke() }
+            )
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalAlignment = Alignment.CenterVertically
     ) {

@@ -1,17 +1,20 @@
 package com.cs407.savewise.viewModel
 
-import androidx.lifecycle.ViewModel
+import android.app.Application
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import com.cs407.savewise.data.ExpenseStorage
 import com.cs407.savewise.model.ExpenseRecord
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
-class HomeViewModel : ViewModel() {
+class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
+    private val storage = ExpenseStorage(application.applicationContext)
 
     private val _recentExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
-    private val _name = MutableStateFlow<String>("Martin")
+    private val _name = MutableStateFlow("Martin")
     val recentExpenses: StateFlow<List<ExpenseRecord>> = _recentExpenses
     val userName: StateFlow<String> = _name
 
@@ -20,27 +23,22 @@ class HomeViewModel : ViewModel() {
 
     init {
         viewModelScope.launch {
-            _recentExpenses.value = listOf(
-                ExpenseRecord(1, "Groceries at Market", "Shopping", 54.23, "2025-10-25"),
-                ExpenseRecord(2, "Lunch with friends", "Dining", 18.90, "2025-10-25"),
-                ExpenseRecord(3, "Gas Refill", "Transport", 42.10, "2025-10-24"),
-                ExpenseRecord(4, "Movie Night", "Entertainment", 12.50, "2025-10-22"),
-                ExpenseRecord(5, "Weekly Groceries", "Shopping", 76.45, "2025-10-20"),
-            )
+            storage.seedDefaultsIfEmpty()
+            storage.expenses.collect { stored ->
+                _recentExpenses.value = stored.sortedByDescending { it.date }
+            }
         }
     }
-
 
     fun addExpense(record: ExpenseRecord) {
         viewModelScope.launch {
-            _recentExpenses.value = _recentExpenses.value + record
+            storage.addExpense(record)
         }
     }
 
-
     fun clearExpenses() {
         viewModelScope.launch {
-            _recentExpenses.value = emptyList()
+            storage.replaceAll(emptyList())
         }
     }
 }
