@@ -1,44 +1,112 @@
 package com.cs407.savewise.ui.screen
 
-import androidx.compose.foundation.Canvas
+
+
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.ui.component.AddExpenseDialog
 import com.cs407.savewise.ui.component.AnimatedRecordButton
 import com.cs407.savewise.ui.component.ExpenseList
 import com.cs407.savewise.ui.component.MonthlyExpenseChart
 import com.cs407.savewise.viewModel.HomeViewModel
+import android.Manifest
+import android.widget.Toast
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.StateFlow
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun HomeScreen(
-    viewModel: HomeViewModel = viewModel(),
-    onMicClick: () -> Unit = {},
-    onSettingClick: ()  -> Unit = {},
+    viewModel: HomeViewModel,
+    onStartSpeech: () -> Unit = {},
+    onStopSpeech: () -> Unit = {},
+    onSettingClick: () -> Unit = {},
 ) {
+
+    val shouldOpenAddDialog by viewModel.shouldOpenAddDialog.collectAsState()
     val expenses by viewModel.recentExpenses.collectAsState()
     val aiTip by viewModel.aiTip.collectAsState()
+    val speechText by viewModel.speechText.collectAsState()
     val name by viewModel.userName.collectAsState()
     var showAddDialog by remember { mutableStateOf(false) }
+    val expenseTitle by viewModel.expenseTitle.collectAsState()
+    val expenseCategory by viewModel.expenseCategory.collectAsState()
+    val expenseAmount by viewModel.expenseAmount.collectAsState()
+
+    val activity = LocalActivity.current
+    var showPermissionDialog by remember { mutableStateOf(false) }
+    val context = LocalContext.current
+
+    val audioPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission(),
+        onResult = { granted ->
+            if (!granted) {
+                Toast.makeText(activity, "麦克风权限被拒绝", Toast.LENGTH_SHORT).show()
+            }
+        }
+    )
+    LaunchedEffect(Unit) {
+        val hasPermission = ContextCompat.checkSelfPermission(
+            context,
+            Manifest.permission.RECORD_AUDIO
+        ) == PackageManager.PERMISSION_GRANTED
+
+        // 如果没有权限，弹出对话框
+        if (!hasPermission) {
+            showPermissionDialog = true
+        }
+    }
+    LaunchedEffect(shouldOpenAddDialog) {
+        if (shouldOpenAddDialog) {
+            showAddDialog = true
+        }
+    }
+
+    if (showPermissionDialog) {
+        AlertDialog(
+            onDismissRequest = { showPermissionDialog = false },
+            title = { Text("权限请求") },
+            text = { Text("我们需要麦克风权限来识别语音添加账单项。") },
+            confirmButton = {
+                TextButton(onClick = {
+                    audioPermissionLauncher.launch(Manifest.permission.RECORD_AUDIO)
+                    showPermissionDialog = false
+                }) {
+                    Text("允许")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = {
+                    showPermissionDialog = false
+                }) {
+                    Text("取消")
+                }
+            }
+        )
+    }
+
+
+
+
     Scaffold(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
         topBar = {
@@ -86,14 +154,20 @@ fun HomeScreen(
 
 
             item {
-                AnimatedRecordButton(onFinished = { showAddDialog = true })
+                AnimatedRecordButton(
+                    onStart = { onStartSpeech() },
+                    onStop = { onStopSpeech()},
+                    onFinished = {
+
+                    }
+                )
             }
 
             item {
                 MonthlyExpenseChart(expenses = expenses)
             }
 
-            // 最近支出
+
             item {
                 Text(
                     text = "Recent Expenses",
@@ -102,7 +176,7 @@ fun HomeScreen(
                 )
             }
 
-            // 支出列表
+
             item {
                 ExpenseList(
                     expenses = expenses,
@@ -117,15 +191,17 @@ fun HomeScreen(
             AddExpenseDialog(
                 expense = ExpenseRecord(
                     id = -1,
-                    title = "",
-                    category = "",
-                    amount = 0.0,
+                    title = expenseTitle,
+                    category = expenseCategory,
+                    amount = expenseAmount,
                     date = ""
                 ),
-                onDismiss = { showAddDialog = false },
+                onDismiss = { showAddDialog = false
+                    viewModel.resetAddDialogFlag() },
                 onSave = { newExpense ->
                     viewModel.addExpense(newExpense)
                     showAddDialog = false
+                    viewModel.resetAddDialogFlag()
                 }
             )
         }
@@ -135,5 +211,5 @@ fun HomeScreen(
 @Preview(showBackground = true)
 @Composable
 fun HomeScreenPreview() {
-    HomeScreen()
+
 }
