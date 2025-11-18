@@ -28,7 +28,7 @@ import kotlinx.coroutines.delay
 
 @Composable
 fun AnimatedRecordButton(
-    totalDuration: Int = 5000,
+    totalDuration: Int = 50000,
     onStart: () -> Unit = {},
     onStop: () -> Unit = {},
     onFinished: () -> Unit = {}
