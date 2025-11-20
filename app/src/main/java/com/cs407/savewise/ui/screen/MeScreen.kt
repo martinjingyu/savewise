@@ -98,7 +98,9 @@ private enum class AppThemeMode {
 
 /* --------------------- ENTRY --------------------- */
 @Composable
-fun MeScreen() {
+fun MeScreen(
+    onLogout: () -> Unit
+) {
     val nav = rememberNavController()
     val vm: MeViewModel = viewModel()
 
@@ -111,7 +113,8 @@ fun MeScreen() {
                 onOpenNotifications = { nav.navigate(MeRoutes.Notifications)},
                 onOpenAppearanceAndTheme = {nav.navigate(MeRoutes.AppearanceAndTheme)},
                 onOpenDataAndBackup = {nav.navigate(MeRoutes.DataAndBackup)},
-                onOpenHFA = {nav.navigate(MeRoutes.HFA)}
+                onOpenHFA = {nav.navigate(MeRoutes.HFA)},
+                onLogout = onLogout
             )
         }
         composable(MeRoutes.Profile) {
@@ -181,7 +184,8 @@ private fun MeRootScreen(
     onOpenNotifications: () -> Unit,
     onOpenAppearanceAndTheme:() -> Unit,
     onOpenDataAndBackup:() -> Unit,
-    onOpenHFA:() -> Unit
+    onOpenHFA:() -> Unit,
+    onLogout: () -> Unit
 ) {
     val state by vm.uiState.collectAsState()
 
@@ -210,6 +214,20 @@ private fun MeRootScreen(
             item { Spacer(Modifier.height(8.dp)) }
             items(rows) { (label, handler) ->
                 SettingsRow(title = label, onClick = handler)
+            }
+            item {
+                Spacer(Modifier.height(24.dp))
+                Button(
+                    onClick = {
+                        vm.logout()   // Firebase sign out + clear Me UI state
+                        onLogout()    // Navigate back to Login & clear back stack
+                    },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp)
+                ) {
+                    Text("Log out")
+                }
             }
         }
     }

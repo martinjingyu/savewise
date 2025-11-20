@@ -132,4 +132,13 @@ class MeViewModel : ViewModel() {
     fun updateThemeMode(mode: AppThemeMode) {
         _uiState.update { it.copy(themeMode = mode) }
     }
+
+    fun logout() {
+        // Sign out from Firebase
+        auth.signOut()
+
+        //reset Me screen UI state to defaults
+        _uiState.value = MeUiState()
+    }
+
 }
