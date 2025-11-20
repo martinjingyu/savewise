@@ -1,30 +1,71 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
 package com.cs407.savewise.ui.screen
 
+import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.ChevronRight
-import androidx.compose.material3.*
-import androidx.compose.runtime.*
+import androidx.compose.material3.Button
+import androidx.compose.material3.Divider
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.RadioButton
+import androidx.compose.material3.Scaffold
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TopAppBar
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.layout.ContentScale
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.viewmodel.compose.viewModel
-import androidx.navigation.compose.*
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
-import androidx.compose.ui.text.input.PasswordVisualTransformation
-import androidx.compose.ui.text.input.VisualTransformation
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.rememberNavController
+import coil.compose.rememberAsyncImagePainter
 import com.cs407.savewise.viewModel.MeViewModel
-import androidx.compose.foundation.shape.RoundedCornerShape
+import kotlinx.coroutines.launch
 
 
 /* --------------------- ROUTES --------------------- */
@@ -51,7 +92,8 @@ private enum class NotificationMode {
 
 private enum class AppThemeMode {
     Light,
-    Dark
+    Dark,
+    System,
 }
 
 /* --------------------- ENTRY --------------------- */
@@ -63,6 +105,7 @@ fun MeScreen() {
     NavHost(navController = nav, startDestination = MeRoutes.Root) {
         composable(MeRoutes.Root) {
             MeRootScreen(
+                vm = vm,
                 onOpenProfile = { nav.navigate(MeRoutes.Profile) },
                 onOpenVoice = { nav.navigate(MeRoutes.Voice) },
                 onOpenNotifications = { nav.navigate(MeRoutes.Notifications)},
@@ -109,11 +152,13 @@ fun MeScreen() {
                 onBack = { nav.navigateUp()}
             )
         }
-        composable(MeRoutes.AppearanceAndTheme){
+        composable(MeRoutes.AppearanceAndTheme) {
             AppearanceAndThemeScreen(
-                onBack = { nav.navigateUp()}
+                onBack = { nav.navigateUp() }
             )
         }
+
+
         composable(MeRoutes.DataAndBackup){
             DataAndBackupScreen(
                 onBack = { nav.navigateUp()}
@@ -130,6 +175,7 @@ fun MeScreen() {
 /* --------------------- ROOT (your current page) --------------------- */
 @Composable
 private fun MeRootScreen(
+    vm: MeViewModel,
     onOpenProfile: () -> Unit,
     onOpenVoice: () -> Unit,
     onOpenNotifications: () -> Unit,
@@ -137,6 +183,8 @@ private fun MeRootScreen(
     onOpenDataAndBackup:() -> Unit,
     onOpenHFA:() -> Unit
 ) {
+    val state by vm.uiState.collectAsState()
+
     val rows = listOf(
         "Voice Input" to onOpenVoice,
         "Notifications" to onOpenNotifications,
@@ -188,7 +236,13 @@ private fun ProfileScreen(
     ) { padding ->
         LazyColumn(Modifier.padding(padding)) {
             item { SettingsRow(title = "Profile picture", onClick =  onOpenProfilePicture ) }
-            item { SettingsRow(title = "Name", onClick =  onOpenName) }
+            item {
+                SettingsRow(
+                    title = "Name",
+                    value = state.displayName.ifBlank { "Not set" },
+                    onClick = onOpenName
+                )
+            }
             item { SettingsRow(title = "Region", onClick =  onOpenRegion ) }
             item { SettingsRow(title = "Change your password", onClick =  onOpenPassword ) }
         }
@@ -196,6 +250,17 @@ private fun ProfileScreen(
 }
 @Composable
 private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
+    val state by vm.uiState.collectAsState()
+
+    // Launcher to pick an image from gallery
+    val imagePickerLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        if (uri != null) {
+            vm.updateProfilePicture(uri)
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -219,7 +284,8 @@ private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // Placeholder picture (big circular icon)
+
+            // Big circular avatar
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -229,31 +295,70 @@ private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
                     ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AccountCircle,
-                    contentDescription = "Profile picture placeholder",
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(72.dp)
-                )
+                if (state.profilePictureUri != null) {
+                    // Show picked image
+                    Image(
+                        painter = rememberAsyncImagePainter(state.profilePictureUri),
+                        contentDescription = "Profile picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    // Fallback icon
+                    Icon(
+                        imageVector = Icons.Outlined.AccountCircle,
+                        contentDescription = "Profile picture placeholder",
+                        tint = MaterialTheme.colorScheme.primary,
+                        modifier = Modifier.size(72.dp)
+                    )
+                }
             }
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Edit button
             Button(
-                onClick = {
-                    // TODO: open image picker or camera later
-                }
+                onClick = { imagePickerLauncher.launch("image/*") }
             ) {
-                Text("Edit profile picture")
+                Text(
+                    if (state.profilePictureUri == null)
+                        "Choose profile picture"
+                    else
+                        "Change profile picture"
+                )
+            }
+
+            if (state.profilePictureUri != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                TextButton(onClick = { vm.clearProfilePicture() }) {
+                    Text("Remove photo")
+                }
             }
         }
     }
 }
 
 
+
 @Composable
 private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
+    val state by vm.uiState.collectAsState()
+
+    var name by remember { mutableStateOf(state.displayName) }
+    var hasTyped by remember { mutableStateOf(false) }
+
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    // If state.displayName changes from outside, keep field in sync
+    LaunchedEffect(state.displayName) {
+        if (!hasTyped) {
+            name = state.displayName
+        }
+    }
+
+    val canSave = name.isNotBlank() &&
+            name.trim() != state.displayName.trim()
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -267,32 +372,59 @@ private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-
-        // For now we just keep the name locally.
-        // Later you can initialize this from vm.uiState if you add a name field there.
-        var name by remember { mutableStateOf("User Name") }
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
                 .padding(16.dp),
-            verticalArrangement = Arrangement.Top
+            verticalArrangement = Arrangement.Top,
+            horizontalAlignment = Alignment.Start
         ) {
+            Text(
+                text = "Edit your display name",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(12.dp))
+
             OutlinedTextField(
                 value = name,
-                onValueChange = { name = it },
-                label = { Text("Name") },
+                onValueChange = {
+                    name = it
+                    hasTyped = true
+                },
+                label = { Text("Display name") },
                 singleLine = true,
                 modifier = Modifier.fillMaxWidth()
+            )
+
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "This name may appear on your home screen and in other places in the app.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
 
             Spacer(Modifier.height(24.dp))
 
             Button(
-                onClick = { /* TODO: save name via ViewModel later */ },
+                onClick = {
+                    vm.updateDisplayName(name) { success, message ->
+                        scope.launch {
+                            if (success) {
+                                snackbarHostState.showSnackbar("Name updated.")
+                                onBack()
+                            } else {
+                                snackbarHostState.showSnackbar(
+                                    message ?: "Failed to update name."
+                                )
+                            }
+                        }
+                    }
+                },
+                enabled = canSave,
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text("Save")
@@ -300,6 +432,7 @@ private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     }
 }
+
 
 
 @Composable
@@ -329,6 +462,22 @@ private fun ProfileRegionScreen(vm: MeViewModel, onBack: () -> Unit) {
 
 @Composable
 private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+
+    var currentPassword by remember { mutableStateOf("") }
+    var newPassword by remember { mutableStateOf("") }
+    var confirmPassword by remember { mutableStateOf("") }
+
+    var showCurrent by remember { mutableStateOf(false) }
+    var showNew by remember { mutableStateOf(false) }
+    var showConfirm by remember { mutableStateOf(false) }
+
+    val canSave =
+        currentPassword.isNotBlank() &&
+                newPassword.length >= 6 &&
+                newPassword == confirmPassword
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -342,16 +491,9 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
                     }
                 }
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
-
-        // In the future you can get this from vm.uiState
-        val initialPassword = "********"   // placeholder
-        var password by remember { mutableStateOf(initialPassword) }
-        var showPassword by remember { mutableStateOf(false) }
-
-        val canSave = password != initialPassword && password.isNotBlank()
-
         Column(
             modifier = Modifier
                 .fillMaxSize()
@@ -360,41 +502,133 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
             verticalArrangement = Arrangement.Top
         ) {
 
+            // Current password
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 OutlinedTextField(
-                    value = password,
-                    onValueChange = { password = it },
-                    label = { Text("Password") },
+                    value = currentPassword,
+                    onValueChange = { currentPassword = it },
+                    label = { Text("Current password") },
                     singleLine = true,
                     modifier = Modifier.weight(1f),
-                    visualTransformation = if (showPassword)
-                        VisualTransformation.None
-                    else
-                        PasswordVisualTransformation()
+                    visualTransformation = if (showCurrent) VisualTransformation.None else PasswordVisualTransformation()
                 )
-
                 Spacer(Modifier.width(8.dp))
-
-                TextButton(onClick = { showPassword = !showPassword }) {
-                    Text(if (showPassword) "Hide" else "Show")
+                TextButton(onClick = { showCurrent = !showCurrent }) {
+                    Text(if (showCurrent) "Hide" else "Show")
                 }
             }
 
+            Spacer(Modifier.height(16.dp))
+
+            // New password
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = newPassword,
+                    onValueChange = { newPassword = it },
+                    label = { Text("New password") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    visualTransformation = if (showNew) VisualTransformation.None else PasswordVisualTransformation()
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = { showNew = !showNew }) {
+                    Text(if (showNew) "Hide" else "Show")
+                }
+            }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Confirm password
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                OutlinedTextField(
+                    value = confirmPassword,
+                    onValueChange = { confirmPassword = it },
+                    label = { Text("Confirm new password") },
+                    singleLine = true,
+                    modifier = Modifier.weight(1f),
+                    visualTransformation = if (showConfirm) VisualTransformation.None else PasswordVisualTransformation()
+                )
+                Spacer(Modifier.width(8.dp))
+                TextButton(onClick = { showConfirm = !showConfirm }) {
+                    Text(if (showConfirm) "Hide" else "Show")
+                }
+            }
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "Minimum 6 characters. Your current password is only used to verify it's you.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+
             Spacer(Modifier.height(24.dp))
 
+            // Save button
             Button(
-                onClick = { /* TODO: implement save */ },
+                onClick = {
+                    if (newPassword != confirmPassword) {
+                        scope.launch {
+                            snackbarHostState.showSnackbar("New passwords do not match.")
+                        }
+                        return@Button
+                    }
+
+                    vm.changePassword(
+                        currentPassword = currentPassword,
+                        newPassword = newPassword
+                    ) { success, message ->
+                        scope.launch {
+                            if (success) {
+                                snackbarHostState.showSnackbar("Password updated.")
+                                currentPassword = ""
+                                newPassword = ""
+                                confirmPassword = ""
+                                onBack()
+                            } else {
+                                snackbarHostState.showSnackbar(message ?: "Failed to change password.")
+                            }
+                        }
+                    }
+                },
                 enabled = canSave,
                 modifier = Modifier.align(Alignment.End)
             ) {
                 Text("Save")
             }
+
+            Spacer(Modifier.height(16.dp))
+
+            // Forgot password -> reset email
+            TextButton(
+                onClick = {
+                    vm.sendPasswordResetEmailForCurrentUser { success, message ->
+                        scope.launch {
+                            if (success) {
+                                snackbarHostState.showSnackbar("Password reset email sent.")
+                            } else {
+                                snackbarHostState.showSnackbar(message ?: "Failed to send reset email.")
+                            }
+                        }
+                    }
+                },
+                modifier = Modifier.align(Alignment.Start)
+            ) {
+                Text("Forgot current password? Send reset email")
+            }
         }
     }
 }
+
 
 
 /* --------------------- VOICE INPUT --------------------- */
@@ -551,9 +785,17 @@ private fun NotificationsScreen(onBack: () -> Unit) {
 
 
 @Composable
-private fun AppearanceAndThemeScreen(onBack: () -> Unit) {
-    // Default is Light mode
-    var themeMode by remember { mutableStateOf(AppThemeMode.Light) }
+private fun AppearanceAndThemeScreen(
+    onBack: () -> Unit
+) {
+    // Just keep this in memory for now
+    var selectedMode by remember { mutableStateOf(AppThemeMode.System) }
+
+    val options: List<Pair<AppThemeMode, String>> = listOf(
+        AppThemeMode.System to "Use device theme",
+        AppThemeMode.Light to "Light",
+        AppThemeMode.Dark to "Dark"
+    )
 
     Scaffold(
         topBar = {
@@ -562,7 +804,7 @@ private fun AppearanceAndThemeScreen(onBack: () -> Unit) {
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
+                            imageVector = Icons.AutoMirrored.Filled.ArrowBack,
                             contentDescription = "Back"
                         )
                     }
@@ -570,41 +812,53 @@ private fun AppearanceAndThemeScreen(onBack: () -> Unit) {
             )
         }
     ) { padding ->
-        LazyColumn(
+        Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp)
         ) {
-            // Light mode
-            item {
-                SettingsRow(
-                    title = "Light",
-                    trailing = {
-                        RadioButton(
-                            selected = themeMode == AppThemeMode.Light,
-                            onClick = { themeMode = AppThemeMode.Light }
-                        )
-                    },
-                    onClick = { themeMode = AppThemeMode.Light }
-                )
-            }
+            Text(
+                text = "Theme",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Spacer(Modifier.height(8.dp))
+            Text(
+                text = "Choose how SaveWise looks. (For now this only changes the option here.)",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
 
-            // Dark mode
-            item {
-                SettingsRow(
-                    title = "Dark",
-                    trailing = {
-                        RadioButton(
-                            selected = themeMode == AppThemeMode.Dark,
-                            onClick = { themeMode = AppThemeMode.Dark }
+            Spacer(Modifier.height(16.dp))
+
+            options.forEach { (mode: AppThemeMode, label: String) ->
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { selectedMode = mode }
+                        .padding(vertical = 8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = label,
+                            style = MaterialTheme.typography.bodyLarge
                         )
-                    },
-                    onClick = { themeMode = AppThemeMode.Dark }
+                    }
+                    RadioButton(
+                        selected = (selectedMode == mode),
+                        onClick = { selectedMode = mode }
+                    )
+                }
+                Divider(
+                    thickness = 0.5.dp,
+                    color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
                 )
             }
         }
     }
 }
+
 
 @Composable
 private fun DataAndBackupScreen(onBack: () -> Unit) {
@@ -897,7 +1151,7 @@ private fun SettingsRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(MaterialTheme.colorScheme.surface)
+            .background(MaterialTheme.colorScheme.surface)  
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {

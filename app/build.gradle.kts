@@ -109,6 +109,7 @@ dependencies {
     // To use Kotlin Symbol Processing (KSP)
     ksp(libs.androidx.room.compiler)
 
+    implementation("io.coil-kt:coil-compose:2.7.0")
 
     implementation("com.squareup.okhttp3:okhttp:4.11.0")
     implementation("com.squareup.okio:okio:3.4.0")
