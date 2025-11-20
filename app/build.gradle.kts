@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.cs407.savewise"
-        minSdk = 36
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0"
@@ -52,6 +52,7 @@ android {
     }
 }
 
+
 dependencies {
 
     implementation(libs.androidx.core.ktx)
@@ -68,7 +69,9 @@ dependencies {
     implementation("androidx.compose.ui:ui:1.5.3")
     implementation("androidx.compose.material3:material3:1.1.2")
     implementation("androidx.navigation:navigation-compose:2.7.3")
-    implementation(libs.androidx.material3)
+    implementation(libs.androidx.constraintlayout)
+    implementation(libs.androidx.appcompat)
+    //implementation(libs.androidx.material3)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
@@ -97,10 +100,18 @@ dependencies {
 
     implementation(platform("com.google.firebase:firebase-bom:34.5.0"))
     implementation("com.google.firebase:firebase-auth")
+    implementation("com.squareup.okhttp3:okhttp:4.12.0")
 
+
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-core:1.7.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")
+    implementation("com.google.accompanist:accompanist-systemuicontroller:0.32.0")
     // To use Kotlin Symbol Processing (KSP)
     ksp(libs.androidx.room.compiler)
 
     implementation("io.coil-kt:coil-compose:2.7.0")
+
+    implementation("com.squareup.okhttp3:okhttp:4.11.0")
+    implementation("com.squareup.okio:okio:3.4.0")
 
 }

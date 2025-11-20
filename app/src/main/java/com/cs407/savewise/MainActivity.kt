@@ -1,15 +1,18 @@
 package com.cs407.savewise
 
 import android.os.Bundle
-import androidx.activity.ComponentActivity
+
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
@@ -30,16 +33,81 @@ import com.cs407.savewise.viewModel.ViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
+import com.cs407.savewise.service.SpeechRecognizerHelper
+import com.cs407.savewise.ui.AskNamePage
+import com.cs407.savewise.viewModel.HomeViewModel
+import com.cs407.savewise.viewModel.ViewModel
+import androidx.fragment.app.FragmentActivity
+import com.cs407.savewise.service.WavAudioRecorder
+import com.cs407.savewise.service.WhisperApi
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.launch
+import java.io.File
 
 
-class MainActivity : ComponentActivity() {
+class MainActivity : FragmentActivity() {
     private lateinit var auth: FirebaseAuth
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
         auth = Firebase.auth
         setContent {
-            AppMain()
+            val homeViewModel: HomeViewModel = viewModel()
+            val speechHelper = remember {
+                SpeechRecognizerHelper(
+                    context = this,
+                    onResult = { homeViewModel.onSpeechResult(it) },
+                    onError = { homeViewModel.onSpeechError(it) }
+                )
+            }
+            val context = LocalContext.current
+            val scope = rememberCoroutineScope()
+
+            val audioFile = File(context.cacheDir, "speech.wav")
+
+            // ⭐ WAV Recorder
+            val recorder = remember {
+                WavAudioRecorder(
+                    context = context,
+                    file = audioFile,
+                    onError = { msg ->
+                        println("❌ Recorder error: $msg")
+                        homeViewModel.onSpeechError(msg)
+                    }
+                )
+            }
+
+            // ⭐ Whisper 调用逻辑封装成 lambda，供 UI 调用
+            val onStartSpeech = remember {
+                {
+                    homeViewModel.onSpeechStart()
+                    recorder.start()
+                }
+            }
+
+            val onStopSpeech = remember {
+                {
+                    recorder.stop()
+                    homeViewModel.onSpeechStop()
+
+                    // 调 Whisper
+                    scope.launch {
+                        try {
+                            val text = WhisperApi.transcribe(audioFile)
+
+                            homeViewModel.onSpeechResult(text)
+                        } catch (e: Exception) {
+                            homeViewModel.onSpeechError(e.message ?: "error")
+                        }
+                    }
+                    Unit
+                }
+            }
+            AppMain(
+                homeViewModel = homeViewModel,
+                onStartSpeech = onStartSpeech,
+                onStopSpeech = onStopSpeech,)
         }
     }
 }
@@ -47,6 +115,9 @@ class MainActivity : ComponentActivity() {
 @Composable
 fun AppMain(
     viewModel: ViewModel = viewModel(),
+    homeViewModel: HomeViewModel,
+    onStartSpeech: () -> Unit,
+    onStopSpeech: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
     //val navController = rememberNavController()
@@ -104,13 +175,18 @@ fun AppMain(
                 )
             }
             composable(Screen.Home.route) {
-                HomeScreen(onSettingClick = {
-                    navController.navigate(Screen.Me.route) {
-                        popUpTo(navController.graph.startDestinationId) { saveState = true }
-                        launchSingleTop = true
-                        restoreState = true
+                HomeScreen(
+                    viewModel = homeViewModel,
+                    onStartSpeech = onStartSpeech,
+                    onStopSpeech = onStopSpeech,
+                    onSettingClick = {
+                        navController.navigate(Screen.Me.route) {
+                            popUpTo(navController.graph.startDestinationId) { saveState = true }
+                            launchSingleTop = true
+                            restoreState = true
+                        }
                     }
-                })
+                )
             }
 
 
