@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 
 
 enum class AppThemeMode {
@@ -120,14 +121,32 @@ class MeViewModel : ViewModel() {
             return
         }
 
-        // For now: just update local UI state, no Firebase requirement
-        _uiState.update { it.copy(displayName = trimmed) }
-        onResult(true, null)
+        val user = auth.currentUser
+        if (user == null) {
+            _uiState.update { it.copy(displayName = trimmed) }
+            onResult(false, "No logged-in user.")
+            return
+        }
 
+        val profileUpdates = UserProfileChangeRequest.Builder()
+            .setDisplayName(trimmed)
+            .build()
 
-        // val user = FirebaseAuth.getInstance().currentUser
-        // if (user != null) { ... user.updateProfile(...) ... }
+        user.updateProfile(profileUpdates)
+            .addOnCompleteListener { task ->
+                if (task.isSuccessful) {
+                    // Update local UI state to match Firebase
+                    _uiState.update { it.copy(displayName = trimmed) }
+                    onResult(true, null)
+                } else {
+                    onResult(
+                        false,
+                        task.exception?.localizedMessage ?: "Failed to update display name."
+                    )
+                }
+            }
     }
+
 
     fun updateThemeMode(mode: AppThemeMode) {
         _uiState.update { it.copy(themeMode = mode) }
