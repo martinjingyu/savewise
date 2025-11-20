@@ -1,11 +1,13 @@
 package com.cs407.savewise.ui.screen
 
 import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +16,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material.icons.filled.FilterList
 import androidx.compose.material.icons.filled.LocalDining
@@ -22,6 +25,8 @@ import androidx.compose.material.icons.filled.ShoppingCart
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DatePicker
+import androidx.compose.material3.DatePickerDialog
 import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -33,6 +38,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.rememberDatePickerState
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -50,6 +56,11 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.ui.theme.SavewiseTheme
 import com.cs407.savewise.viewModel.ExpensesViewModel
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -212,6 +223,7 @@ private fun ExpenseRow(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun EditExpenseDialog(
     expense: ExpenseRecord,
@@ -220,7 +232,17 @@ private fun EditExpenseDialog(
 ) {
     var title by remember { mutableStateOf(expense.title) }
     var category by remember { mutableStateOf(expense.category) }
-    var date by remember { mutableStateOf(expense.date) }
+    val isoFormatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
+    val displayFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
+    var isoDate by remember {
+        mutableStateOf(expense.date.takeIf { it.isNotBlank() } ?: LocalDate.now().format(isoFormatter))
+    }
+    val displayDate = remember(isoDate) {
+        runCatching { LocalDate.parse(isoDate, isoFormatter).format(displayFormatter) }.getOrElse { isoDate }
+    }
+    var showDatePicker by remember { mutableStateOf(false) }
+    val initialDateMillis = remember(isoDate) { parseIsoDateToMillis(isoDate) }
+    val datePickerState = rememberDatePickerState(initialSelectedDateMillis = initialDateMillis)
     var amountText by remember { mutableStateOf(expense.amount.toString()) }
 
     AlertDialog(
@@ -242,12 +264,13 @@ private fun EditExpenseDialog(
                     singleLine = true,
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
-                OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
-                    label = { Text("Date YYYY-MM-DD") },
-                    singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                DateSelectorField(
+                    label = "Date",
+                    displayValue = displayDate,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    onClick = { showDatePicker = true }
                 )
                 OutlinedTextField(
                     value = amountText,
@@ -267,7 +290,7 @@ private fun EditExpenseDialog(
                         expense.copy(
                             title = title,
                             category = category,
-                            date = date,
+                            date = isoDate,
                             amount = amount
                         )
                     )
@@ -278,8 +301,38 @@ private fun EditExpenseDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
+    if (showDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        datePickerState.selectedDateMillis?.let { millis ->
+                            isoDate = millisToIsoDate(millis)
+                        }
+                        showDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        isoDate = ""
+                        showDatePicker = false
+                    }) { Text("Clear") }
+                    TextButton(onClick = { showDatePicker = false }) { Text("Cancel") }
+                }
+            }
+        ) {
+            DatePicker(state = datePickerState)
+        }
+    }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun FilterDialog(
     currentFilter: com.cs407.savewise.viewModel.ExpenseFilter,
@@ -291,8 +344,18 @@ private fun FilterDialog(
     var query by remember { mutableStateOf(currentFilter.query) }
     var minText by remember { mutableStateOf(currentFilter.minAmount?.toString() ?: "") }
     var maxText by remember { mutableStateOf(currentFilter.maxAmount?.toString() ?: "") }
-    var startDate by remember { mutableStateOf(currentFilter.startDate.orEmpty()) }
-    var endDate by remember { mutableStateOf(currentFilter.endDate.orEmpty()) }
+    val isoFormatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
+    val displayFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
+    var startDateIso by remember { mutableStateOf(currentFilter.startDate.orEmpty()) }
+    var endDateIso by remember { mutableStateOf(currentFilter.endDate.orEmpty()) }
+    val startDisplay = remember(startDateIso) { isoDateToDisplay(startDateIso, isoFormatter, displayFormatter) }
+    val endDisplay = remember(endDateIso) { isoDateToDisplay(endDateIso, isoFormatter, displayFormatter) }
+    var showStartPicker by remember { mutableStateOf(false) }
+    var showEndPicker by remember { mutableStateOf(false) }
+    val startInitialMillis = remember(startDateIso) { parseIsoDateToMillis(startDateIso) }
+    val startPickerState = rememberDatePickerState(initialSelectedDateMillis = startInitialMillis)
+    val endInitialMillis = remember(endDateIso) { parseIsoDateToMillis(endDateIso) }
+    val endPickerState = rememberDatePickerState(initialSelectedDateMillis = endInitialMillis)
     var selectedCats by remember { mutableStateOf(currentFilter.categories.toMutableSet()) }
 
     AlertDialog(
@@ -334,19 +397,21 @@ private fun FilterDialog(
                         .fillMaxWidth()
                         .padding(top = 8.dp)
                 ) {
-                    OutlinedTextField(
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
-                        value = startDate,
-                        onValueChange = { startDate = it },
-                        label = { Text("Start YYYY-MM-DD") },
-                        singleLine = true
+                    DateSelectorField(
+                        label = "Start Date",
+                        displayValue = startDisplay,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
+                        onClick = { showStartPicker = true }
                     )
-                    OutlinedTextField(
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
-                        value = endDate,
-                        onValueChange = { endDate = it },
-                        label = { Text("End YYYY-MM-DD") },
-                        singleLine = true
+                    DateSelectorField(
+                        label = "End Date",
+                        displayValue = endDisplay,
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 8.dp),
+                        onClick = { showEndPicker = true }
                     )
                 }
                 if (categories.isNotEmpty()) {
@@ -377,8 +442,8 @@ private fun FilterDialog(
                     query,
                     minText.toDoubleOrNull(),
                     maxText.toDoubleOrNull(),
-                    startDate.ifBlank { null },
-                    endDate.ifBlank { null },
+                    startDateIso.ifBlank { null },
+                    endDateIso.ifBlank { null },
                     selectedCats
                 )
             }) { Text("Apply") }
@@ -390,6 +455,56 @@ private fun FilterDialog(
             }
         }
     )
+
+    if (showStartPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showStartPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    startPickerState.selectedDateMillis?.let { millis ->
+                        startDateIso = millisToIsoDate(millis)
+                    }
+                    showStartPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        startDateIso = ""
+                        showStartPicker = false
+                    }) { Text("Clear") }
+                    TextButton(onClick = { showStartPicker = false }) { Text("Cancel") }
+                }
+            }
+        ) {
+            DatePicker(state = startPickerState)
+        }
+    }
+
+    if (showEndPicker) {
+        DatePickerDialog(
+            onDismissRequest = { showEndPicker = false },
+            confirmButton = {
+                TextButton(onClick = {
+                    endPickerState.selectedDateMillis?.let { millis ->
+                        endDateIso = millisToIsoDate(millis)
+                    }
+                    showEndPicker = false
+                }) { Text("OK") }
+            },
+            dismissButton = {
+                Row {
+                    TextButton(onClick = {
+                        endDateIso = ""
+                        showEndPicker = false
+                    }) { Text("Clear") }
+                    TextButton(onClick = { showEndPicker = false }) { Text("Cancel") }
+                }
+            }
+        ) {
+            DatePicker(state = endPickerState)
+        }
+    }
 }
 
 private fun iconForCategory(category: String): ImageVector = when (category) {
@@ -400,6 +515,60 @@ private fun iconForCategory(category: String): ImageVector = when (category) {
 }
 
 private fun formatAmount(amount: Double): String = "-$" + String.format("%.2f", amount)
+
+@Composable
+private fun DateSelectorField(
+    label: String,
+    displayValue: String,
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit
+) {
+    Box(modifier = modifier) {
+        OutlinedTextField(
+            value = displayValue,
+            onValueChange = { },
+            label = { Text(label) },
+            trailingIcon = {
+                Icon(
+                    imageVector = Icons.Default.ArrowDropDown,
+                    contentDescription = "Select $label"
+                )
+            },
+            readOnly = true,
+            modifier = Modifier.fillMaxWidth()
+        )
+        Spacer(
+            modifier = Modifier
+                .matchParentSize()
+                .clickable { onClick() }
+        )
+    }
+}
+
+private fun parseIsoDateToMillis(value: String): Long? {
+    if (value.isBlank()) return null
+    return runCatching {
+        LocalDate.parse(value, DateTimeFormatter.ISO_LOCAL_DATE)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli()
+    }.getOrNull()
+}
+
+private fun millisToIsoDate(millis: Long): String =
+    Instant.ofEpochMilli(millis)
+        .atZone(ZoneOffset.UTC)
+        .toLocalDate()
+        .format(DateTimeFormatter.ISO_LOCAL_DATE)
+
+private fun isoDateToDisplay(
+    value: String,
+    isoFormatter: DateTimeFormatter,
+    displayFormatter: DateTimeFormatter
+): String {
+    if (value.isBlank()) return "Any"
+    return runCatching { LocalDate.parse(value, isoFormatter).format(displayFormatter) }.getOrElse { value }
+}
 
 @Preview(showBackground = true)
 @Composable

@@ -1,6 +1,5 @@
 package com.cs407.savewise.ui.component
 
-import android.app.TimePickerDialog
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Column
@@ -32,14 +31,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.Dialog
 import com.cs407.savewise.model.ExpenseRecord
 import java.text.SimpleDateFormat
+import java.time.Instant
+import java.time.LocalDate
+import java.time.ZoneOffset
+import java.time.format.DateTimeFormatter
 import java.util.Calendar
 import java.util.Date
 import java.util.Locale
@@ -54,16 +54,25 @@ fun AddExpenseDialog(
 ) {
     var title by remember { mutableStateOf(expense.title) }
     var category by remember { mutableStateOf(expense.category) }
-    var date by remember { mutableStateOf(expense.date) }
+    val isoFormatter = remember { DateTimeFormatter.ISO_LOCAL_DATE }
+    val displayFormatter = remember { DateTimeFormatter.ofPattern("MMM dd, yyyy", Locale.getDefault()) }
+    var isoDate by remember {
+        mutableStateOf(
+            expense.date.takeIf { it.isNotBlank() } ?: LocalDate.now().format(isoFormatter)
+        )
+    }
+    val displayDate = remember(isoDate) {
+        runCatching { LocalDate.parse(isoDate, isoFormatter).format(displayFormatter) }.getOrElse { isoDate }
+    }
     var amountText by remember { mutableStateOf(expense.amount.toString()) }
     var showDatePicker by remember { mutableStateOf(false) }
-    val datePickerState = rememberDatePickerState()
+    val initialDateMillis = remember(isoDate) { parseIsoDateToMillis(isoDate, isoFormatter) }
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDateMillis
+    )
 
     var time by remember { mutableStateOf("") }
     var showTimePicker by remember { mutableStateOf(false) }
-    val context = LocalContext.current
-
-
     AlertDialog(
         onDismissRequest = onDismiss,
         title = { Text("Add New Expense") },
@@ -92,10 +101,10 @@ fun AddExpenseDialog(
                     modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
                 )
                 OutlinedTextField(
-                    value = date,
-                    onValueChange = { date = it },
+                    value = displayDate,
+                    onValueChange = { },
                     label = { Text("Date") },
-                    placeholder = { Text("mm/dd/yyyy") },
+                    placeholder = { Text("yyyy-MM-dd") },
                     trailingIcon = {
                         Icon(
                             imageVector = Icons.Default.ArrowDropDown,
@@ -148,11 +157,10 @@ fun AddExpenseDialog(
                             onClick = {
                                 val selectedDate = datePickerState.selectedDateMillis
                                 if (selectedDate != null) {
-                                    val formatter = SimpleDateFormat(
-                                        "MM/dd/yyyy",
-                                        Locale.getDefault()
-                                    )
-                                    date = formatter.format(Date(selectedDate))
+                                    val localDate = Instant.ofEpochMilli(selectedDate)
+                                        .atZone(ZoneOffset.UTC)
+                                        .toLocalDate()
+                                    isoDate = localDate.format(isoFormatter)
                                 }
                                 showDatePicker = false
                             }
@@ -221,7 +229,7 @@ fun AddExpenseDialog(
                         expense.copy(
                             title = title,
                             category = category,
-                            date = date,
+                            date = isoDate,
                             amount = amount
                         )
                     )
@@ -232,4 +240,13 @@ fun AddExpenseDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+}
+
+private fun parseIsoDateToMillis(value: String, formatter: DateTimeFormatter): Long? {
+    return runCatching {
+        LocalDate.parse(value, formatter)
+            .atStartOfDay(ZoneOffset.UTC)
+            .toInstant()
+            .toEpochMilli()
+    }.getOrNull()
 }

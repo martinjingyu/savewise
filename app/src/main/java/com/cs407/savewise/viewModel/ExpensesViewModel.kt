@@ -5,6 +5,8 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cs407.savewise.data.ExpenseStorage
 import com.cs407.savewise.model.ExpenseRecord
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -26,6 +28,8 @@ data class ExpensesUiState(
 
 class ExpensesViewModel(application: Application) : AndroidViewModel(application) {
     private val storage = ExpenseStorage(application.applicationContext)
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private var expensesJob: Job? = null
 
     private val _allExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     private val _filter = MutableStateFlow(ExpenseFilter())
@@ -42,13 +46,7 @@ class ExpensesViewModel(application: Application) : AndroidViewModel(application
     val categories: StateFlow<Set<String>> = _categories
 
     init {
-        viewModelScope.launch {
-            storage.seedDefaultsIfEmpty()
-            storage.expenses.collect { stored ->
-                _allExpenses.value = stored
-                recomputeDerived()
-            }
-        }
+        observeAuthChanges()
     }
 
     fun setFilterQuery(query: String) {
@@ -89,20 +87,23 @@ class ExpensesViewModel(application: Application) : AndroidViewModel(application
     }
 
     fun addExpense(record: ExpenseRecord) {
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.addExpense(record)
+            storage.addExpense(uid, record)
         }
     }
 
     fun deleteExpense(id: Long) {
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.deleteExpense(id)
+            storage.deleteExpense(uid, id)
         }
     }
 
     fun updateExpense(updated: ExpenseRecord) {
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.updateExpense(updated)
+            storage.updateExpense(uid, updated)
         }
     }
 
@@ -152,6 +153,28 @@ class ExpensesViewModel(application: Application) : AndroidViewModel(application
 
     private fun extractCategories(list: List<ExpenseRecord>): Set<String> =
         list.map { it.category }.toSet()
+
+    private fun observeAuthChanges() {
+        auth.addAuthStateListener { firebaseAuth ->
+            subscribeToExpenses(firebaseAuth.currentUser?.uid)
+        }
+    }
+
+    private fun subscribeToExpenses(ownerUid: String?) {
+        expensesJob?.cancel()
+        if (ownerUid.isNullOrBlank()) {
+            _allExpenses.value = emptyList()
+            recomputeDerived()
+            return
+        }
+        expensesJob = viewModelScope.launch {
+            storage.seedDefaultsIfEmpty()
+            storage.expensesForUser(ownerUid).collect { stored ->
+                _allExpenses.value = stored
+                recomputeDerived()
+            }
+        }
+    }
 }
 
 // no-op
