@@ -206,7 +206,20 @@ fun AppMain(
 
 
             composable(Screen.Expense.route) { ExpenseScreen() }
-            composable(Screen.Me.route) { MeScreen() }
+            composable(Screen.Me.route) {
+                MeScreen(
+                    onLogout = {
+                        // Go back to Login and clear the whole stack
+                        navController.navigate(NoteScreen.Login.name) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
+
         }
     }
 }
