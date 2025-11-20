@@ -1,12 +1,13 @@
 package com.cs407.savewise.viewModel
 
-import android.app.Activity
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cs407.savewise.data.ExpenseStorage
 import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.service.ChatRepository
+import com.google.firebase.auth.FirebaseAuth
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -18,6 +19,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private val _shouldOpenAddDialog = MutableStateFlow(false)
 
     private val storage = ExpenseStorage(application.applicationContext)
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private var expensesJob: Job? = null
     private val chatRepository = ChatRepository()
     private val _recentExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     private val _name = MutableStateFlow("Martin")
@@ -41,23 +44,42 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     val shouldOpenAddDialog: StateFlow<Boolean> = _shouldOpenAddDialog
     init {
-        viewModelScope.launch {
+        observeAuthChanges()
+    }
+
+    private fun observeAuthChanges() {
+        auth.addAuthStateListener { firebaseAuth ->
+            val user = firebaseAuth.currentUser
+            _name.value = user?.displayName ?: ""
+            subscribeToExpenses(user?.uid)
+        }
+    }
+
+    private fun subscribeToExpenses(ownerUid: String?) {
+        expensesJob?.cancel()
+        if (ownerUid.isNullOrBlank()) {
+            _recentExpenses.value = emptyList()
+            return
+        }
+        expensesJob = viewModelScope.launch {
             storage.seedDefaultsIfEmpty()
-            storage.expenses.collect { stored ->
+            storage.expensesForUser(ownerUid).collect { stored ->
                 _recentExpenses.value = stored.sortedByDescending { it.date }
             }
         }
     }
 
     fun addExpense(record: ExpenseRecord) {
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.addExpense(record)
+            storage.addExpense(uid, record)
         }
     }
 
     fun clearExpenses() {
+        val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.replaceAll(emptyList())
+            storage.replaceAll(uid, emptyList())
         }
     }
 

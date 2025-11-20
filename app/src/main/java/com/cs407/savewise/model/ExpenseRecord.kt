@@ -8,6 +8,6 @@ data class ExpenseRecord(
     val title: String,
     val category: String,
     val amount: Double,
-    val date: String // ISO-like yyyy-MM-dd for simple sorting
+    val date: String, // ISO-like yyyy-MM-dd for simple sorting
+    val ownerUid: String = ""
 )
-

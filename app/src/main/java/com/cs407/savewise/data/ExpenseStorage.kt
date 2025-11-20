@@ -12,6 +12,9 @@ import kotlinx.coroutines.flow.map
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.json.Json
+import java.time.LocalDate
+import java.time.format.DateTimeFormatter
+import java.util.Locale
 
 private val Context.expensesDataStore: DataStore<Preferences> by preferencesDataStore(
     name = "expenses_data_store"
@@ -19,51 +22,59 @@ private val Context.expensesDataStore: DataStore<Preferences> by preferencesData
 
 class ExpenseStorage(private val context: Context) {
 
-    val expenses: Flow<List<ExpenseRecord>> =
+    private val allExpenses: Flow<List<ExpenseRecord>> =
         context.expensesDataStore.data.map { prefs -> decodeExpenses(prefs[EXPENSES_KEY]) }
+
+    fun expensesForUser(ownerUid: String): Flow<List<ExpenseRecord>> =
+        allExpenses.map { list -> list.filter { it.ownerUid == ownerUid } }
 
     suspend fun seedDefaultsIfEmpty() {
         context.expensesDataStore.edit { prefs ->
             if (!prefs.contains(EXPENSES_KEY)) {
-                prefs[EXPENSES_KEY] = json.encodeToString(DEFAULT_EXPENSES)
+                prefs[EXPENSES_KEY] = json.encodeToString(emptyList<ExpenseRecord>())
             }
         }
     }
 
-    suspend fun addExpense(expense: ExpenseRecord) {
-        updateList { current ->
-            val record = ensureId(expense, current)
-            current + record
+    suspend fun addExpense(ownerUid: String, expense: ExpenseRecord) {
+        updateList(ownerUid) { owned, all ->
+            val record = ensureId(expense, all)
+            owned + record
         }
     }
 
-    suspend fun updateExpense(expense: ExpenseRecord) {
-        updateList { current ->
-            current.map { if (it.id == expense.id) expense else it }
+    suspend fun updateExpense(ownerUid: String, expense: ExpenseRecord) {
+        updateList(ownerUid) { owned, _ ->
+            owned.map { if (it.id == expense.id) expense else it }
         }
     }
 
-    suspend fun deleteExpense(id: Long) {
-        updateList { current -> current.filterNot { it.id == id } }
+    suspend fun deleteExpense(ownerUid: String, id: Long) {
+        updateList(ownerUid) { owned, _ -> owned.filterNot { it.id == id } }
     }
 
-    suspend fun replaceAll(expenses: List<ExpenseRecord>) {
-        context.expensesDataStore.edit { prefs ->
-            prefs[EXPENSES_KEY] = json.encodeToString(expenses)
-        }
+    suspend fun replaceAll(ownerUid: String, expenses: List<ExpenseRecord>) {
+        updateList(ownerUid) { _, _ -> expenses }
     }
 
-    private suspend fun updateList(transform: (List<ExpenseRecord>) -> List<ExpenseRecord>) {
+    private suspend fun updateList(
+        ownerUid: String,
+        transform: (owned: List<ExpenseRecord>, all: List<ExpenseRecord>) -> List<ExpenseRecord>
+    ) {
         context.expensesDataStore.edit { prefs ->
             val current = decodeExpenses(prefs[EXPENSES_KEY])
-            val updated = transform(current)
-            prefs[EXPENSES_KEY] = json.encodeToString(updated)
+            val (owned, others) = current.partition { it.ownerUid == ownerUid }
+            val updatedOwned = transform(owned, current)
+                .map { ensureOwnership(ensureDateFormat(it), ownerUid) }
+            prefs[EXPENSES_KEY] = json.encodeToString((others + updatedOwned).map(::ensureDateFormat))
         }
     }
 
     private fun decodeExpenses(raw: String?): List<ExpenseRecord> {
         if (raw.isNullOrBlank()) return emptyList()
-        return runCatching { json.decodeFromString<List<ExpenseRecord>>(raw) }.getOrElse { emptyList() }
+        return runCatching { json.decodeFromString<List<ExpenseRecord>>(raw) }
+            .getOrElse { emptyList() }
+            .map(::ensureDateFormat)
     }
 
     private fun ensureId(expense: ExpenseRecord, current: List<ExpenseRecord>): ExpenseRecord {
@@ -72,15 +83,33 @@ class ExpenseStorage(private val context: Context) {
         return expense.copy(id = nextId)
     }
 
+    private fun ensureOwnership(expense: ExpenseRecord, ownerUid: String): ExpenseRecord {
+        if (expense.ownerUid == ownerUid) return expense
+        return expense.copy(ownerUid = ownerUid)
+    }
+
     companion object {
         private val EXPENSES_KEY = stringPreferencesKey("expenses_json")
         private val json = Json { ignoreUnknownKeys = true }
-        private val DEFAULT_EXPENSES = listOf(
-            ExpenseRecord(1, "Groceries at Market", "Shopping", 54.23, "2025-10-25"),
-            ExpenseRecord(2, "Lunch with friends", "Dining", 18.90, "2025-10-25"),
-            ExpenseRecord(3, "Gas Refill", "Transport", 42.10, "2025-10-24"),
-            ExpenseRecord(4, "Movie Night", "Entertainment", 12.50, "2025-10-22"),
-            ExpenseRecord(5, "Weekly Groceries", "Shopping", 76.45, "2025-10-20")
-        )
+        private val isoFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
+        private val legacyFormatter: DateTimeFormatter =
+            DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.getDefault())
+
+        private fun ensureDateFormat(expense: ExpenseRecord): ExpenseRecord {
+            val normalized = normalizeDate(expense.date)
+            if (normalized == expense.date) return expense
+            return expense.copy(date = normalized)
+        }
+
+        private fun normalizeDate(raw: String): String {
+            val trimmed = raw.trim()
+            if (trimmed.isBlank()) return trimmed
+            parseDate(trimmed, isoFormatter)?.let { return it.format(isoFormatter) }
+            parseDate(trimmed, legacyFormatter)?.let { return it.format(isoFormatter) }
+            return trimmed
+        }
+
+        private fun parseDate(value: String, formatter: DateTimeFormatter): LocalDate? =
+            runCatching { LocalDate.parse(value, formatter) }.getOrNull()
     }
 }
