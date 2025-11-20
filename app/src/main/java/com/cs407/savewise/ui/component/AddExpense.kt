@@ -71,7 +71,7 @@ fun AddExpenseDialog(
         initialSelectedDateMillis = initialDateMillis
     )
 
-    var time by remember { mutableStateOf("") }
+    var time by remember { mutableStateOf(currentTimeString()) }
     var showTimePicker by remember { mutableStateOf(false) }
     AlertDialog(
         onDismissRequest = onDismiss,
@@ -240,6 +240,7 @@ fun AddExpenseDialog(
             TextButton(onClick = onDismiss) { Text("Cancel") }
         }
     )
+
 }
 
 private fun parseIsoDateToMillis(value: String, formatter: DateTimeFormatter): Long? {
@@ -249,4 +250,14 @@ private fun parseIsoDateToMillis(value: String, formatter: DateTimeFormatter): L
             .toInstant()
             .toEpochMilli()
     }.getOrNull()
+}
+
+
+private fun currentTimeString(): String {
+    val cal = Calendar.getInstance()
+    return String.format(
+        "%02d:%02d",
+        cal.get(Calendar.HOUR_OF_DAY),
+        cal.get(Calendar.MINUTE)
+    )
 }

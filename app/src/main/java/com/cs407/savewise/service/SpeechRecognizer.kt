@@ -31,7 +31,7 @@ class SpeechRecognizerHelper(
             override fun onEndOfSpeech() {}
 
             override fun onError(error: Int) {
-                onError("语音识别错误：$error")
+                onError("Error：$error")
             }
 
             override fun onResults(results: Bundle?) {
@@ -45,7 +45,7 @@ class SpeechRecognizerHelper(
                     print(data)
                     onResult(data)
                 } else {
-                    onError("未识别到内容")
+                    onError("Nothing detect")
                 }
             }
 

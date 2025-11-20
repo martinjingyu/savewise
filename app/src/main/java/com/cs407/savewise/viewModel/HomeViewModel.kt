@@ -96,7 +96,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun onSpeechResult(text: String) {
         println("🎤【识别成功】：$text")
 
-        _aiTip.value = "识别成功，正在理解内容…"
+        _aiTip.value = "AI is analysing…"
 
         // ⭐ 先把原始识别文字显示
         _speechText.value = text
@@ -120,14 +120,14 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
                         // ✔ 用 GPT 处理后的内容更新
                         _speechText.value = processed
-                        _aiTip.value = "语义理解完成，准备添加账单…"
+                        _aiTip.value = "Understand，trying to create expense…"
 
                         // ✔ 通知 UI 可以打开 dialog
                         _shouldOpenAddDialog.value = true
                     }
                     .onFailure { e ->
                         println(e)
-                        _aiTip.value = "GPT 错误：${e.message}"
+                        _aiTip.value = "GPT Error：${e.message}"
                     }
             }
         }

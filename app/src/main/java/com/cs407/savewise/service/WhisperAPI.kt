@@ -48,7 +48,7 @@ object WhisperApi {
 
         // ❗ 如果没有 text 字段，返回空文本而不是崩溃
         if (!json.has("text")) {
-            throw Exception("Whisper 返回中没有 text 字段")
+            throw Exception("Whisper no text return")
         }
 
         json.getString("text")
