@@ -100,4 +100,7 @@ dependencies {
 
     // To use Kotlin Symbol Processing (KSP)
     ksp(libs.androidx.room.compiler)
+
+    implementation("io.coil-kt:coil-compose:2.7.0")
+
 }

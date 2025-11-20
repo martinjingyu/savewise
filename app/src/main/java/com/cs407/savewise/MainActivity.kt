@@ -4,10 +4,8 @@ import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
-
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
-
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -16,20 +14,22 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
-import com.cs407.savewise.ui.theme.SavewiseTheme
-
-import androidx.navigation.compose.*
+import androidx.navigation.compose.NavHost
+import androidx.navigation.compose.composable
+import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.navigation.compose.rememberNavController
+import com.cs407.savewise.ui.AskNamePage
 import com.cs407.savewise.ui.LoginPage
 import com.cs407.savewise.ui.component.BottomNavBar
 import com.cs407.savewise.ui.component.Screen
-import com.cs407.savewise.ui.screen.*
+import com.cs407.savewise.ui.screen.ExpenseScreen
+import com.cs407.savewise.ui.screen.HomeScreen
+import com.cs407.savewise.ui.screen.MeScreen
+import com.cs407.savewise.ui.theme.SavewiseTheme
+import com.cs407.savewise.viewModel.ViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
-import com.cs407.savewise.R
-import com.cs407.savewise.ui.AskNamePage
-import com.cs407.savewise.viewModel.ViewModel
-
 
 
 class MainActivity : ComponentActivity() {
@@ -86,7 +86,7 @@ fun AppMain(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = NoteScreen.Login.name,
+            startDestination = Screen.Home.route,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(route = NoteScreen.Login.name) {
