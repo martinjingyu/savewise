@@ -205,8 +205,10 @@ private fun MeRootScreen(
         ) {
             // highlighted "User Name" row
             item {
+                val name = state.displayName.ifBlank { "User Name" }
+
                 HighlightUserRow(
-                    title = "User Name",
+                    title = name,
                     subtitle = "Tap to edit",
                     onClick = onOpenProfile
                 )
