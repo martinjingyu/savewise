@@ -4,6 +4,9 @@ import android.util.Log
 import com.cs407.savewise.data.UserState
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.auth
 
@@ -104,7 +107,6 @@ fun signIn(
                     val displayName = user.displayName
                     val isNameMissing = displayName.isNullOrBlank()
 
-                    // --- CHANGE THIS ---
                     onSuccess(
                         UserState(name = displayName ?: "", uid = user.uid),
                         isNameMissing
@@ -112,13 +114,55 @@ fun signIn(
                 } else {
                     onFailure(Exception("User object was null after successful sign in."))
                 }
-// Sign in success
-// TODO: Get current user from the response and propogate it
             } else {
-// Sign in failed, try creating account
-// TODO: Call createAccount function
                 Log.w("signIn", "signInWithEmail:failure", task.exception)
-                createAccount(email, password, onSuccess, onFailure)
+                when (task.exception) {
+                    is FirebaseAuthInvalidUserException,
+                    is FirebaseAuthInvalidCredentialsException -> {
+                        Log.d("signIn", "Invalid user or credentials.")
+                        onFailure(Exception("The email or password you entered is incorrect. Please try again."))
+                    }
+                    else -> {
+                        // Handle other errors (network, etc.)
+                        onFailure(task.exception ?: Exception("An unknown sign-in error occurred."))
+                    }
+                }
+            }
+        }
+}
+
+/**
+ * Create a new Firebase account with email and password.
+ * This function ONLY handles new user registration.
+ */
+fun signUp(
+    email: String,
+    password: String,
+    onSuccess: (user: UserState, isNameMissing: Boolean) -> Unit,
+    onFailure: (Exception) -> Unit
+) {
+    val auth: FirebaseAuth = Firebase.auth
+    auth.createUserWithEmailAndPassword(email, password)
+        .addOnCompleteListener { task ->
+            if (task.isSuccessful) {
+                val user = auth.currentUser
+                Log.d("signUp", "createUserWithEmail:success")
+                if (user != null) {
+                    // For a new user, name is always missing initially.
+                    onSuccess(UserState(name = "", uid = user.uid), true)
+                } else {
+                    onFailure(Exception("User was null after account creation."))
+                }
+            } else {
+                Log.w("signUp", "createUserWithEmail:failure", task.exception)
+                when (task.exception) {
+                    is FirebaseAuthUserCollisionException -> {
+                        onFailure(Exception("This email address is already in use by another account."))
+                    }
+                    else -> {
+                        onFailure(task.exception ?: Exception("An unknown error occurred during sign up."))
+                    }
+                }
             }
         }
 }

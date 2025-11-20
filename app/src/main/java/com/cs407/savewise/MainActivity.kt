@@ -36,10 +36,10 @@ import com.google.firebase.auth.auth
 import com.cs407.savewise.service.SpeechRecognizerHelper
 import com.cs407.savewise.ui.AskNamePage
 import com.cs407.savewise.viewModel.HomeViewModel
-import com.cs407.savewise.viewModel.ViewModel
 import androidx.fragment.app.FragmentActivity
 import com.cs407.savewise.service.WavAudioRecorder
 import com.cs407.savewise.service.WhisperApi
+import com.cs407.savewise.ui.SignUpPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
@@ -157,13 +157,27 @@ fun AppMain(
     ) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Home.route,
+            startDestination = NoteScreen.Login.name,
             modifier = Modifier.padding(innerPadding)
         ) {
             composable(route = NoteScreen.Login.name) {
                 LoginPage(
                     loginButtonClick = { user, isNameMissing  ->
                         viewModel.setUser(user, isNameMissing)
+                    },
+                    onSignUpClicked = {
+                        navController.navigate(NoteScreen.SignUp.name)
+                    }
+                )
+            }
+            composable(route = NoteScreen.SignUp.name) {
+                SignUpPage(
+                    signUpButtonClick = { user, isNameMissing ->
+                        viewModel.setUser(user, isNameMissing)
+                    },
+                    // This allows the user to navigate back to the login screen
+                    onLoginClicked = {
+                        navController.popBackStack() // Go back to the previous screen (LoginPage)
                     }
                 )
             }
@@ -199,6 +213,7 @@ fun AppMain(
 
 enum class NoteScreen(@param:StringRes val title: Int) {
     Login(title = R.string.login_screen),
+    SignUp(title = R.string.signup_screen),
     NoteList(title = R.string.note_list_screen),
     AskName(title = R.string.name_hint)
 }
