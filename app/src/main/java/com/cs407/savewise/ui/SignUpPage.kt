@@ -33,15 +33,13 @@ import com.cs407.savewise.auth.EmailResult
 import com.cs407.savewise.auth.PasswordResult
 import com.cs407.savewise.auth.checkEmail
 import com.cs407.savewise.auth.checkPassword
-import com.cs407.savewise.auth.signIn
+import com.cs407.savewise.auth.signUp
 import com.cs407.savewise.data.UserState
 
-
 @Composable
-fun LogInButton(
+fun SignUpButton(
     email: String,
     password: String,
-    //add other parameters if you need
     modifier: Modifier = Modifier,
     onAuthSuccess: (UserState, isNameMissing: Boolean) -> Unit,
     onAuthFailure: (String) -> Unit,
@@ -50,11 +48,7 @@ fun LogInButton(
 
     Button(
         onClick = {
-// TODO: 1. Validate email using validateEmail()
-// TODO: 2. If email error, update ui with error message
-// TODO: 3. Validate password using validatePassword()
-// TODO: 4. If password error, update ui with error message
-// TODO: 5. If both valid, call signIn()
+            // 1. Validate email
             val emailResult = checkEmail(email)
             if (emailResult != EmailResult.Valid) {
                 val errorMessage = when (emailResult) {
@@ -66,6 +60,7 @@ fun LogInButton(
                 return@Button
             }
 
+            // 2. Validate password
             val passwordResult = checkPassword(password)
             if (passwordResult != PasswordResult.Valid) {
                 val errorMessage = when (passwordResult) {
@@ -74,40 +69,39 @@ fun LogInButton(
                     PasswordResult.Invalid -> context.getString(R.string.invalid_password)
                     else -> "An unknown password error occurred"
                 }
-                onAuthFailure(errorMessage) // Pass error message back to the parent
+                onAuthFailure(errorMessage)
                 return@Button
             }
 
-            signIn(
+            // 3. Call signUp (this is the key difference from the login page)
+            signUp(
                 email = email,
                 password = password,
                 onSuccess = { user, isNameMissing ->
                     onAuthSuccess(user, isNameMissing)
                 },
                 onFailure = { exception ->
-                    onAuthFailure(exception.message ?: "An unknown error occurred")
+                    onAuthFailure(exception.message ?: "An unknown error occurred during sign up.")
                 }
             )
         },
-        modifier = Modifier
+        modifier = modifier
             .fillMaxWidth(0.8f)
             .height(50.dp)
     ) {
-        Text(stringResource(R.string.login_button))
+        Text(stringResource(R.string.signup_button))
     }
 }
 
 @Composable
-fun LoginPage(
+fun SignUpPage(
     modifier: Modifier = Modifier,
-    //add callback functions or other parameters if you need
-    loginButtonClick: (UserState, isNameMissing: Boolean) -> Unit,
-    onSignUpClicked: () -> Unit,
+    signUpButtonClick: (UserState, isNameMissing: Boolean) -> Unit,
+    onLoginClicked: () -> Unit // Callback to navigate back to login
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error: String? by remember { mutableStateOf(null) }
-//TODO Callback for authentication completion
 
     Scaffold(modifier) { innerPadding ->
         Column(
@@ -117,37 +111,32 @@ fun LoginPage(
             verticalArrangement = Arrangement.Center,
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            // TODO: Add UI components - ErrorText, email field,
-// password field, button
+
+            // Reusable composables for UI elements
             @Composable
             fun ErrorText(error: String?, modifier: Modifier = Modifier) {
-                if (error != null)
-                    Text(text = error, color = Color.Red, textAlign = TextAlign.Center)
+                Text(
+                    text = error ?: "",
+                    color = Color.Red,
+                    textAlign = TextAlign.Center,
+                    modifier = modifier.height(20.dp) // Reserve space to prevent layout shifts
+                )
             }
 
             @Composable
-            fun userEmail(
-                email: String,
-                onEmailChange: (String) -> Unit,
-                modifier: Modifier = Modifier
-            ) {
+            fun UserEmail(email: String, onEmailChange: (String) -> Unit) {
                 OutlinedTextField(
                     value = email,
                     onValueChange = onEmailChange,
                     label = { Text(stringResource(id = R.string.Email)) },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = modifier
+                    modifier = Modifier.fillMaxWidth(0.8f)
                 )
             }
 
-
             @Composable
-            fun userPassword(
-                password: String,
-                onPasswordChange: (String) -> Unit,
-                modifier: Modifier = Modifier
-            ) {
+            fun UserPassword(password: String, onPasswordChange: (String) -> Unit) {
                 OutlinedTextField(
                     value = password,
                     onValueChange = onPasswordChange,
@@ -155,37 +144,32 @@ fun LoginPage(
                     singleLine = true,
                     visualTransformation = PasswordVisualTransformation(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = modifier
+                    modifier = Modifier.fillMaxWidth(0.8f)
                 )
             }
 
             ErrorText(error = error)
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            userEmail(
-                email = email,
-                onEmailChange = { email = it },
-                modifier = Modifier.fillMaxWidth(0.8f)
-            )
-
             Spacer(modifier = Modifier.height(8.dp))
 
-            userPassword(
-                password = password,
-                onPasswordChange = { password = it },
-                modifier = Modifier.fillMaxWidth(0.8f)
-            )
+            UserEmail(email = email) {
+                email = it
+                error = null // Clear error on new input
+            }
+            Spacer(modifier = Modifier.height(8.dp))
 
+            UserPassword(password = password) {
+                password = it
+                error = null // Clear error on new input
+            }
             Spacer(modifier = Modifier.height(24.dp))
 
-            LogInButton(
+            // Use the new SignUpButton
+            SignUpButton(
                 email = email,
                 password = password,
-                modifier = Modifier.fillMaxWidth(0.8f),
                 onAuthSuccess = { user, isNameMissing ->
                     error = null
-                    loginButtonClick(user, isNameMissing)
+                    signUpButtonClick(user, isNameMissing)
                 },
                 onAuthFailure = { errorMessage ->
                     error = errorMessage
@@ -194,14 +178,14 @@ fun LoginPage(
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // Add a button/text to navigate to the Sign Up screen
+            // Navigation link to go back to the Login screen
             Row(
                 horizontalArrangement = Arrangement.Center,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Don't have an account?")
-                TextButton(onClick = onSignUpClicked) {
-                    Text("Sign Up")
+                Text("Already have an account?")
+                TextButton(onClick = onLoginClicked) {
+                    Text("Log In")
                 }
             }
         }
