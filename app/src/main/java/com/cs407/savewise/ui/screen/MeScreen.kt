@@ -1,4 +1,5 @@
 @file:OptIn(androidx.compose.material3.ExperimentalMaterial3Api::class)
+
 package com.cs407.savewise.ui.screen
 
 import android.net.Uri
@@ -26,7 +27,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.outlined.AccountCircle
 import androidx.compose.material.icons.outlined.ChevronRight
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Divider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -99,7 +102,8 @@ private enum class AppThemeMode {
 /* --------------------- ENTRY --------------------- */
 @Composable
 fun MeScreen(
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     val nav = rememberNavController()
     val vm: MeViewModel = viewModel()
@@ -110,11 +114,12 @@ fun MeScreen(
                 vm = vm,
                 onOpenProfile = { nav.navigate(MeRoutes.Profile) },
                 onOpenVoice = { nav.navigate(MeRoutes.Voice) },
-                onOpenNotifications = { nav.navigate(MeRoutes.Notifications)},
-                onOpenAppearanceAndTheme = {nav.navigate(MeRoutes.AppearanceAndTheme)},
-                onOpenDataAndBackup = {nav.navigate(MeRoutes.DataAndBackup)},
-                onOpenHFA = {nav.navigate(MeRoutes.HFA)},
-                onLogout = onLogout
+                onOpenNotifications = { nav.navigate(MeRoutes.Notifications) },
+                onOpenAppearanceAndTheme = { nav.navigate(MeRoutes.AppearanceAndTheme) },
+                onOpenDataAndBackup = { nav.navigate(MeRoutes.DataAndBackup) },
+                onOpenHFA = { nav.navigate(MeRoutes.HFA) },
+                onLogout = onLogout,
+                onDeleteAccount = onDeleteAccount,
             )
         }
         composable(MeRoutes.Profile) {
@@ -125,7 +130,7 @@ fun MeScreen(
                 onOpenName = { nav.navigate(MeRoutes.ProfileName) },
                 onOpenRegion = { nav.navigate(MeRoutes.ProfileRegion) },
                 onOpenPassword = { nav.navigate(MeRoutes.ProfilePassword) }
-                )
+            )
         }
 
         // NEW profile sub-screens
@@ -149,10 +154,14 @@ fun MeScreen(
                 onOpenStorage = { nav.navigate(MeRoutes.Storage) }
             )
         }
-        composable(MeRoutes.Storage) { RecordingStorageScreen(vm = vm, onBack = { nav.navigateUp() }) }
+        composable(MeRoutes.Storage) {
+            RecordingStorageScreen(
+                vm = vm,
+                onBack = { nav.navigateUp() })
+        }
         composable(MeRoutes.Notifications) {
             NotificationsScreen(
-                onBack = { nav.navigateUp()}
+                onBack = { nav.navigateUp() }
             )
         }
         composable(MeRoutes.AppearanceAndTheme) {
@@ -162,14 +171,14 @@ fun MeScreen(
         }
 
 
-        composable(MeRoutes.DataAndBackup){
+        composable(MeRoutes.DataAndBackup) {
             DataAndBackupScreen(
-                onBack = { nav.navigateUp()}
+                onBack = { nav.navigateUp() }
             )
         }
-        composable(MeRoutes.HFA){
+        composable(MeRoutes.HFA) {
             HFAScreen(
-                onBack = { nav.navigateUp()}
+                onBack = { nav.navigateUp() }
             )
         }
     }
@@ -182,12 +191,14 @@ private fun MeRootScreen(
     onOpenProfile: () -> Unit,
     onOpenVoice: () -> Unit,
     onOpenNotifications: () -> Unit,
-    onOpenAppearanceAndTheme:() -> Unit,
-    onOpenDataAndBackup:() -> Unit,
-    onOpenHFA:() -> Unit,
-    onLogout: () -> Unit
+    onOpenAppearanceAndTheme: () -> Unit,
+    onOpenDataAndBackup: () -> Unit,
+    onOpenHFA: () -> Unit,
+    onLogout: () -> Unit,
+    onDeleteAccount: () -> Unit
 ) {
     val state by vm.uiState.collectAsState()
+    var showDeleteConfirmationDialog by remember { mutableStateOf(false) }
 
     val rows = listOf(
         "Voice Input" to onOpenVoice,
@@ -196,6 +207,31 @@ private fun MeRootScreen(
         "Data & Backup" to onOpenDataAndBackup,
         "Help, Feedback & About" to onOpenHFA
     )
+
+    if (showDeleteConfirmationDialog) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmationDialog = false },
+            title = { Text("Delete Account") },
+            text = { Text("Are you sure you want to permanently delete your account? This action cannot be undone.") },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        showDeleteConfirmationDialog = false
+                        vm.deleteAccount()
+                        onDeleteAccount()
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmationDialog = false }) {
+                    Text("Cancel")
+                }
+            }
+        )
+    }
 
     Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
         LazyColumn(
@@ -230,6 +266,16 @@ private fun MeRootScreen(
                 ) {
                     Text("Log out")
                 }
+                Spacer(Modifier.height(8.dp))
+                OutlinedButton(
+                    onClick = { showDeleteConfirmationDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(horizontal = 16.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
+                ) {
+                    Text("Delete Account")
+                }
             }
         }
     }
@@ -244,18 +290,25 @@ private fun ProfileScreen(
     onOpenName: () -> Unit,
     onOpenRegion: () -> Unit,
     onOpenPassword: () -> Unit
-    ) {
+) {
     val state by vm.uiState.collectAsState()
     Scaffold(
         topBar = {
             TopAppBar(
                 title = { Text("Profile") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
             )
         }
     ) { padding ->
         LazyColumn(Modifier.padding(padding)) {
-            item { SettingsRow(title = "Profile picture", onClick =  onOpenProfilePicture ) }
+            item { SettingsRow(title = "Profile picture", onClick = onOpenProfilePicture) }
             item {
                 SettingsRow(
                     title = "Name",
@@ -263,11 +316,12 @@ private fun ProfileScreen(
                     onClick = onOpenName
                 )
             }
-            item { SettingsRow(title = "Region", onClick =  onOpenRegion ) }
-            item { SettingsRow(title = "Change your password", onClick =  onOpenPassword ) }
+            item { SettingsRow(title = "Region", onClick = onOpenRegion) }
+            item { SettingsRow(title = "Change your password", onClick = onOpenPassword) }
         }
     }
 }
+
 @Composable
 private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
     val state by vm.uiState.collectAsState()
@@ -356,7 +410,6 @@ private fun ProfilePictureScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     }
 }
-
 
 
 @Composable
@@ -452,7 +505,6 @@ private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     }
 }
-
 
 
 @Composable
@@ -615,7 +667,9 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
                                 confirmPassword = ""
                                 onBack()
                             } else {
-                                snackbarHostState.showSnackbar(message ?: "Failed to change password.")
+                                snackbarHostState.showSnackbar(
+                                    message ?: "Failed to change password."
+                                )
                             }
                         }
                     }
@@ -636,7 +690,9 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
                             if (success) {
                                 snackbarHostState.showSnackbar("Password reset email sent.")
                             } else {
-                                snackbarHostState.showSnackbar(message ?: "Failed to send reset email.")
+                                snackbarHostState.showSnackbar(
+                                    message ?: "Failed to send reset email."
+                                )
                             }
                         }
                     }
@@ -648,7 +704,6 @@ private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
         }
     }
 }
-
 
 
 /* --------------------- VOICE INPUT --------------------- */
@@ -663,7 +718,14 @@ private fun VoiceInputScreen(
         topBar = {
             TopAppBar(
                 title = { Text("Voice Input") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
             )
         }
     ) { padding ->
@@ -676,7 +738,10 @@ private fun VoiceInputScreen(
                 },
                 onClick = { vm.setAutoRecording(!state.autoRecording) }
             )
-            SettingsRow(title = "Language", value = state.language, onClick = { /* language list later */ })
+            SettingsRow(
+                title = "Language",
+                value = state.language,
+                onClick = { /* language list later */ })
             SettingsRow(
                 title = "Recording storage",
                 value = when (state.recordingStorageDays) {
@@ -708,7 +773,14 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
         topBar = {
             TopAppBar(
                 title = { Text("Recording Storage") },
-                navigationIcon = { IconButton(onClick = onBack) { Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back") } }
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
             )
         }
     ) { padding ->
@@ -717,14 +789,17 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
                 val selected = state.recordingStorageDays == days
                 SettingsRow(
                     title = label,
-                    trailing = { RadioButton(selected = selected, onClick = { vm.setRecordingStorageDays(days) }) },
+                    trailing = {
+                        RadioButton(
+                            selected = selected,
+                            onClick = { vm.setRecordingStorageDays(days) })
+                    },
                     onClick = { vm.setRecordingStorageDays(days) }
                 )
             }
         }
     }
 }
-
 
 
 @Composable
@@ -1148,13 +1223,26 @@ private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Un
             }
             Spacer(Modifier.width(12.dp))
             Column(Modifier.weight(1f)) {
-                Text(text = title, style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium), maxLines = 1, overflow = TextOverflow.Ellipsis)
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
                 if (subtitle != null) {
                     Spacer(Modifier.height(2.dp))
-                    Text(text = subtitle, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
-            Icon(imageVector = Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
     Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
@@ -1171,7 +1259,7 @@ private fun SettingsRow(
         modifier = Modifier
             .fillMaxWidth()
             .clickable(onClick = onClick)
-            .background(MaterialTheme.colorScheme.surface)  
+            .background(MaterialTheme.colorScheme.surface)
             .padding(horizontal = 16.dp, vertical = 14.dp)
     ) {
         Row(verticalAlignment = Alignment.CenterVertically) {
@@ -1179,11 +1267,19 @@ private fun SettingsRow(
                 Text(text = title, style = MaterialTheme.typography.bodyLarge)
                 if (value != null) {
                     Spacer(Modifier.height(2.dp))
-                    Text(text = value, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(
+                        text = value,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
                 }
             }
             if (trailing != null) trailing()
-            else Icon(imageVector = Icons.Outlined.ChevronRight, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            else Icon(
+                imageVector = Icons.Outlined.ChevronRight,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
     Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
