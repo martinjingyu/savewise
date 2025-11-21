@@ -43,6 +43,10 @@ import com.cs407.savewise.ui.SignUpPage
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
+import androidx.compose.foundation.isSystemInDarkTheme
+import com.cs407.savewise.ui.theme.SavewiseTheme
+import com.cs407.savewise.viewModel.MeViewModel
+import com.cs407.savewise.viewModel.AppThemeMode
 
 
 class MainActivity : FragmentActivity() {
@@ -54,61 +58,71 @@ class MainActivity : FragmentActivity() {
         auth = Firebase.auth
         setContent {
             val homeViewModel: HomeViewModel = viewModel()
-            val speechHelper = remember {
-                SpeechRecognizerHelper(
-                    context = this,
-                    onResult = { homeViewModel.onSpeechResult(it) },
-                    onError = { homeViewModel.onSpeechError(it) }
-                )
-            }
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
+            val meViewModel: MeViewModel = viewModel()
 
-            val audioFile = File(context.cacheDir, "speech.wav")
-
-            // ⭐ WAV Recorder
-            val recorder = remember {
-                WavAudioRecorder(
-                    context = context,
-                    file = audioFile,
-                    onError = { msg ->
-                        println("❌ Recorder error: $msg")
-                        homeViewModel.onSpeechError(msg)
-                    }
-                )
+            val meState by meViewModel.uiState.collectAsState()
+            val darkTheme = when (meState.themeMode) {
+                AppThemeMode.System -> isSystemInDarkTheme()
+                AppThemeMode.Light -> false
+                AppThemeMode.Dark -> true
             }
 
-            // ⭐ Whisper 调用逻辑封装成 lambda，供 UI 调用
-            val onStartSpeech = remember {
-                {
-                    homeViewModel.onSpeechStart()
-                    recorder.start()
+            SavewiseTheme(darkTheme = darkTheme) {
+                val speechHelper = remember {
+                    SpeechRecognizerHelper(
+                        context = this,
+                        onResult = { homeViewModel.onSpeechResult(it) },
+                        onError = { homeViewModel.onSpeechError(it) }
+                    )
                 }
-            }
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
 
-            val onStopSpeech = remember {
-                {
-                    recorder.stop()
-                    homeViewModel.onSpeechStop()
+                val audioFile = File(context.cacheDir, "speech.wav")
 
-                    // 调 Whisper
-                    scope.launch {
-                        try {
-                            val text = WhisperApi.transcribe(audioFile)
-
-                            homeViewModel.onSpeechResult(text)
-                        } catch (e: Exception) {
-                            homeViewModel.onSpeechError(e.message ?: "error")
+                val recorder = remember {
+                    WavAudioRecorder(
+                        context = context,
+                        file = audioFile,
+                        onError = { msg ->
+                            println("❌ Recorder error: $msg")
+                            homeViewModel.onSpeechError(msg)
                         }
-                    }
-                    Unit
+                    )
                 }
+
+                val onStartSpeech = remember {
+                    {
+                        homeViewModel.onSpeechStart()
+                        recorder.start()
+                    }
+                }
+
+                val onStopSpeech = remember {
+                    {
+                        recorder.stop()
+                        homeViewModel.onSpeechStop()
+                        scope.launch {
+                            try {
+                                val text = WhisperApi.transcribe(audioFile)
+                                homeViewModel.onSpeechResult(text)
+                            } catch (e: Exception) {
+                                homeViewModel.onSpeechError(e.message ?: "error")
+                            }
+                        }
+                        Unit
+                    }
+                }
+
+                AppMain(
+                    homeViewModel = homeViewModel,
+                    meViewModel = meViewModel,
+                    onStartSpeech = onStartSpeech,
+                    onStopSpeech = onStopSpeech,
+                )
             }
-            AppMain(
-                homeViewModel = homeViewModel,
-                onStartSpeech = onStartSpeech,
-                onStopSpeech = onStopSpeech,)
         }
+
     }
 }
 
@@ -116,6 +130,7 @@ class MainActivity : FragmentActivity() {
 fun AppMain(
     viewModel: ViewModel = viewModel(),
     homeViewModel: HomeViewModel,
+    meViewModel: MeViewModel,
     onStartSpeech: () -> Unit,
     onStopSpeech: () -> Unit,
     navController: NavHostController = rememberNavController()
@@ -208,8 +223,8 @@ fun AppMain(
             composable(Screen.Expense.route) { ExpenseScreen() }
             composable(Screen.Me.route) {
                 MeScreen(
+                    vm = meViewModel,
                     onLogout = {
-                        // Go back to Login and clear the whole stack
                         navController.navigate(NoteScreen.Login.name) {
                             popUpTo(navController.graph.startDestinationId) {
                                 inclusive = true
@@ -219,6 +234,7 @@ fun AppMain(
                     }
                 )
             }
+
 
         }
     }
