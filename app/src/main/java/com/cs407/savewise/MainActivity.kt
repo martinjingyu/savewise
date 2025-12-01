@@ -218,8 +218,6 @@ fun AppMain(
                 )
             }
 
-
-
             composable(Screen.Expense.route) { ExpenseScreen() }
             composable(Screen.Me.route) {
                 MeScreen(
@@ -231,7 +229,16 @@ fun AppMain(
                             }
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onDeleteAccount = {
+                        // Go back to Login and clear the whole stack
+                        navController.navigate(NoteScreen.Login.name) {
+                            popUpTo(navController.graph.startDestinationId) {
+                                inclusive = true
+                            }
+                            launchSingleTop = true
+                        }
+                    },
                 )
             }
 

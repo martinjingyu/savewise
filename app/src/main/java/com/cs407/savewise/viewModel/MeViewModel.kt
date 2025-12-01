@@ -1,13 +1,20 @@
 package com.cs407.savewise.viewModel
 
 import android.net.Uri
+import android.util.Log
+import androidx.activity.result.launch
 import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.google.firebase.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.update
 import com.google.firebase.auth.EmailAuthProvider
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.auth.auth
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.tasks.await
 
 
 enum class AppThemeMode {
@@ -160,4 +167,15 @@ class MeViewModel : ViewModel() {
         _uiState.value = MeUiState()
     }
 
+    fun deleteAccount() {
+        viewModelScope.launch {
+            try {
+                Firebase.auth.currentUser?.delete()?.await()
+                _uiState.value = MeUiState() // Clear UI state on deletion
+            } catch (e: Exception) {
+                // Handle exception, e.g., show an error message
+                Log.e("MeViewModel", "Error deleting account", e)
+            }
+        }
+    }
 }
