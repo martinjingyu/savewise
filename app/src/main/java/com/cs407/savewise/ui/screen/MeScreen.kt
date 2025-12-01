@@ -69,6 +69,8 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.cs407.savewise.viewModel.MeViewModel
 import kotlinx.coroutines.launch
+import com.cs407.savewise.viewModel.AppThemeMode
+import com.cs407.savewise.viewModel.ViewModel
 
 
 /* --------------------- ROUTES --------------------- */
@@ -93,20 +95,15 @@ private enum class NotificationMode {
     AlwaysOff
 }
 
-private enum class AppThemeMode {
-    Light,
-    Dark,
-    System,
-}
 
 /* --------------------- ENTRY --------------------- */
 @Composable
 fun MeScreen(
+    vm: MeViewModel,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
     val nav = rememberNavController()
-    val vm: MeViewModel = viewModel()
 
     NavHost(navController = nav, startDestination = MeRoutes.Root) {
         composable(MeRoutes.Root) {
@@ -166,6 +163,7 @@ fun MeScreen(
         }
         composable(MeRoutes.AppearanceAndTheme) {
             AppearanceAndThemeScreen(
+                vm = vm,
                 onBack = { nav.navigateUp() }
             )
         }
@@ -881,10 +879,11 @@ private fun NotificationsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun AppearanceAndThemeScreen(
+    vm: MeViewModel,
     onBack: () -> Unit
 ) {
-    // Just keep this in memory for now
-    var selectedMode by remember { mutableStateOf(AppThemeMode.System) }
+    val state by vm.uiState.collectAsState()
+    val selectedMode = state.themeMode
 
     val options: List<Pair<AppThemeMode, String>> = listOf(
         AppThemeMode.System to "Use device theme",
@@ -919,7 +918,7 @@ private fun AppearanceAndThemeScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Choose how SaveWise looks. (For now this only changes the option here.)",
+                text = "Choose how SaveWise looks.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -930,7 +929,7 @@ private fun AppearanceAndThemeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { selectedMode = mode }
+                        .clickable { vm.updateThemeMode(mode) }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -942,7 +941,7 @@ private fun AppearanceAndThemeScreen(
                     }
                     RadioButton(
                         selected = (selectedMode == mode),
-                        onClick = { selectedMode = mode }
+                        onClick = { vm.updateThemeMode(mode) }
                     )
                 }
                 Divider(
@@ -953,6 +952,8 @@ private fun AppearanceAndThemeScreen(
         }
     }
 }
+
+
 
 
 @Composable
