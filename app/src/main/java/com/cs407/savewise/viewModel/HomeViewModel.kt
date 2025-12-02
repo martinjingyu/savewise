@@ -23,7 +23,7 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     private var expensesJob: Job? = null
     private val chatRepository = ChatRepository()
     private val _recentExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
-    private val _name = MutableStateFlow("Martin")
+    private val _name = MutableStateFlow("")
     private val _aiTip = MutableStateFlow("You're spending 20% more on dining this week.")
 
     private val _expenseTitle = MutableStateFlow("")
@@ -54,6 +54,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
             subscribeToExpenses(user?.uid)
         }
     }
+
+    fun refreshUserNameFromFirebase() {
+        val user = auth.currentUser
+        _name.value = user?.displayName ?: ""
+    }
+
 
     private fun subscribeToExpenses(ownerUid: String?) {
         expensesJob?.cancel()

@@ -29,21 +29,25 @@ data class MeUiState(
     val autoRecording: Boolean = false,
     val language: String = "English",
     val recordingStorageDays: Int = 7, // 0,1,3,7,30
-    val displayName: String = "User Name",
+    val displayName: String = "",
     val profilePictureUri: String? = null,
     val themeMode: AppThemeMode = AppThemeMode.System,
 )
 
 class MeViewModel : ViewModel() {
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private val _uiState = MutableStateFlow(MeUiState())
 
     val uiState: StateFlow<MeUiState> = _uiState
     init {
-        // Load name from Firebase on start (if available)
+        refreshDisplayNameFromFirebase()
+    }
+
+    fun refreshDisplayNameFromFirebase() {
         val user = FirebaseAuth.getInstance().currentUser
         val name = user?.displayName
-        if (!name.isNullOrBlank()) {
-            _uiState.value = _uiState.value.copy(displayName = name)
+        _uiState.update { state ->
+            state.copy(displayName = name?.takeIf { it.isNotBlank() } ?: "User Name")
         }
     }
 
@@ -59,7 +63,6 @@ class MeViewModel : ViewModel() {
     fun clearProfilePicture() {
         _uiState.update { it.copy(profilePictureUri = null) }
     }
-    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
 
     fun changePassword(
         currentPassword: String,

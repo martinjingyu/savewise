@@ -1,5 +1,6 @@
 package com.cs407.savewise.ui
 
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -35,6 +36,15 @@ import com.cs407.savewise.auth.checkEmail
 import com.cs407.savewise.auth.checkPassword
 import com.cs407.savewise.auth.signIn
 import com.cs407.savewise.data.UserState
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.layout.ContentScale
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
 
 
 @Composable
@@ -100,108 +110,120 @@ fun LogInButton(
 @Composable
 fun LoginPage(
     modifier: Modifier = Modifier,
-    //add callback functions or other parameters if you need
     loginButtonClick: (UserState, isNameMissing: Boolean) -> Unit,
     onSignUpClicked: () -> Unit,
 ) {
     var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
     var error: String? by remember { mutableStateOf(null) }
-//TODO Callback for authentication completion
 
-    Scaffold(modifier) { innerPadding ->
-        Column(
+    Scaffold(modifier = modifier) { innerPadding ->
+        Box(
             modifier = Modifier
+                .fillMaxSize()
                 .padding(innerPadding)
-                .fillMaxSize(),
-            verticalArrangement = Arrangement.Center,
-            horizontalAlignment = Alignment.CenterHorizontally
+                .padding(horizontal = 24.dp),
+            contentAlignment = Alignment.Center
         ) {
-            // TODO: Add UI components - ErrorText, email field,
-// password field, button
-            @Composable
-            fun ErrorText(error: String?, modifier: Modifier = Modifier) {
-                if (error != null)
-                    Text(text = error, color = Color.Red, textAlign = TextAlign.Center)
-            }
+           /* Image(
+                painter = painterResource(id = R.drawable.loginBackground),
+                contentDescription = null,
+                modifier = Modifier.matchParentSize(),
+                contentScale = ContentScale.Crop
+            )*/
 
-            @Composable
-            fun userEmail(
-                email: String,
-                onEmailChange: (String) -> Unit,
-                modifier: Modifier = Modifier
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                shape = RoundedCornerShape(24.dp)
             ) {
-                OutlinedTextField(
-                    value = email,
-                    onValueChange = onEmailChange,
-                    label = { Text(stringResource(id = R.string.Email)) },
-                    singleLine = true,
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
-                    modifier = modifier
-                )
-            }
+                Column(
+                    modifier = Modifier.padding(horizontal = 20.dp, vertical = 24.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
 
+                    // App title & tagline
+                    Text(
+                        text = "SaveWise",
+                        style = MaterialTheme.typography.headlineMedium,
+                        textAlign = TextAlign.Center
+                    )
+                    Text(
+                        text = "Smart voice-based expense tracker",
+                        style = MaterialTheme.typography.bodyMedium,
+                        textAlign = TextAlign.Center
+                    )
 
-            @Composable
-            fun userPassword(
-                password: String,
-                onPasswordChange: (String) -> Unit,
-                modifier: Modifier = Modifier
-            ) {
-                OutlinedTextField(
-                    value = password,
-                    onValueChange = onPasswordChange,
-                    label = { Text(stringResource(id = R.string.Password)) },
-                    singleLine = true,
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = modifier
-                )
-            }
+                    // Error text
+                    if (error != null) {
+                        Text(
+                            text = error!!,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodySmall,
+                            textAlign = TextAlign.Center,
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
-            ErrorText(error = error)
+                    // Email field
+                    OutlinedTextField(
+                        value = email,
+                        onValueChange = { email = it },
+                        label = { Text(stringResource(id = R.string.Email)) },
+                        singleLine = true,
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Email,
+                            imeAction = ImeAction.Next
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-            Spacer(modifier = Modifier.height(16.dp))
+                    // Password field
+                    OutlinedTextField(
+                        value = password,
+                        onValueChange = { password = it },
+                        label = { Text(stringResource(id = R.string.Password)) },
+                        singleLine = true,
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(
+                            keyboardType = KeyboardType.Password,
+                            imeAction = ImeAction.Done
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
 
-            userEmail(
-                email = email,
-                onEmailChange = { email = it },
-                modifier = Modifier.fillMaxWidth(0.8f)
-            )
+                    Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+                    // Login button – reuses your existing auth logic
+                    LogInButton(
+                        email = email,
+                        password = password,
+                        modifier = Modifier.fillMaxWidth(),
+                        onAuthSuccess = { user, isNameMissing ->
+                            error = null
+                            loginButtonClick(user, isNameMissing)
+                        },
+                        onAuthFailure = { errorMessage ->
+                            error = errorMessage
+                        }
+                    )
 
-            userPassword(
-                password = password,
-                onPasswordChange = { password = it },
-                modifier = Modifier.fillMaxWidth(0.8f)
-            )
-
-            Spacer(modifier = Modifier.height(24.dp))
-
-            LogInButton(
-                email = email,
-                password = password,
-                modifier = Modifier.fillMaxWidth(0.8f),
-                onAuthSuccess = { user, isNameMissing ->
-                    error = null
-                    loginButtonClick(user, isNameMissing)
-                },
-                onAuthFailure = { errorMessage ->
-                    error = errorMessage
-                }
-            )
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // Add a button/text to navigate to the Sign Up screen
-            Row(
-                horizontalArrangement = Arrangement.Center,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text("Don't have an account?")
-                TextButton(onClick = onSignUpClicked) {
-                    Text("Sign Up")
+                    // Sign up row
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Don't have an account?",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                        TextButton(onClick = onSignUpClicked) {
+                            Text("Sign Up")
+                        }
+                    }
                 }
             }
         }
