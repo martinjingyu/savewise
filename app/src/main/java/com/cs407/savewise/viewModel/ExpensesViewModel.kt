@@ -18,7 +18,7 @@ data class ExpenseFilter(
     val maxAmount: Double? = null,
     val startDate: String? = null, // yyyy-MM-dd inclusive
     val endDate: String? = null,   // yyyy-MM-dd inclusive
-    val categories: Set<String> = emptySet() // multi-select; empty means all
+    val categories: Set<String> = emptySet()
 )
 
 data class ExpensesUiState(
