@@ -166,13 +166,13 @@ fun AnimatedRecordButton(
                 Icon(
                     imageVector = Icons.Default.Stop,
                     contentDescription = "Stop Recording",
-                    modifier = Modifier.size(80.dp)
+                    modifier = Modifier.size(56.dp)
                 )
             } else {
                 Icon(
                     imageVector = Icons.Default.Mic,
                     contentDescription = "Start Recording",
-                    modifier = Modifier.size(80.dp)
+                    modifier = Modifier.size(56.dp)
                 )
             }
         }
