@@ -37,10 +37,20 @@ fun AnimatedRecordButton(
     totalDuration: Int = 50000,
     onStart: () -> Unit = {},
     onStop: () -> Unit = {},
-    onFinished: () -> Unit = {}
+    onFinished: () -> Unit = {},
+    externalStopSignal: Int = 0
 ) {
     var isRecording by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
+
+    // NEW: react to external auto-stop
+    LaunchedEffect(externalStopSignal) {
+        if (externalStopSignal > 0 && isRecording) {
+            isRecording = false
+            onStop()
+            onFinished()
+        }
+    }
 
     // 动态测量宽度
     var boxWidthPx by remember { mutableStateOf(0f) }

@@ -41,6 +41,9 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import androidx.compose.runtime.DisposableEffect
+import com.cs407.savewise.service.SpeechRecognizerHelper
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -64,6 +67,27 @@ fun HomeScreen(
     val activity = LocalActivity.current
     var showPermissionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+    var autoStopSignal by remember { mutableStateOf(0) }
+
+    val speechHelper = remember {
+        SpeechRecognizerHelper(
+            context = context,
+            onResult = { text -> viewModel.onSpeechResult(text) },
+            onError = { msg -> viewModel.onSpeechError(msg) },
+            onAutoStop = {
+                // bump signal so AnimatedRecordButton stops visually
+                autoStopSignal++
+            }
+        )
+    }
+
+    DisposableEffect(Unit) {
+        onDispose {
+            speechHelper.destroy()
+        }
+    }
+
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -174,10 +198,18 @@ fun HomeScreen(
             // Big record button + label
             item {
                 RecordSection(
-                    onStartSpeech = onStartSpeech,
-                    onStopSpeech = onStopSpeech
+                    onStartSpeech = {
+                        viewModel.onSpeechStart()
+                        speechHelper.start()
+                    },
+                    onStopSpeech = {
+                        speechHelper.stop()
+                        viewModel.onSpeechStop()
+                    },
+                    externalStopSignal = autoStopSignal
                 )
             }
+
 
 
             // Monthly chart
@@ -337,7 +369,8 @@ private fun AiTipCard(aiTip: String) {
 @Composable
 private fun RecordSection(
     onStartSpeech: () -> Unit,
-    onStopSpeech: () -> Unit
+    onStopSpeech: () -> Unit,
+    externalStopSignal: Int
 ) {
     Column(
         modifier = Modifier
@@ -347,13 +380,14 @@ private fun RecordSection(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth(0.6f), // 这里将宽度限制为屏幕宽度的 50%，您可以根据需要调整这个比例（例如 0.4f 或 0.6f）
+            modifier = Modifier.fillMaxWidth(0.6f),
             contentAlignment = Alignment.Center
         ) {
             AnimatedRecordButton(
                 onStart = onStartSpeech,
                 onStop = onStopSpeech,
-                onFinished = {}
+                onFinished = {},
+                externalStopSignal = externalStopSignal
             )
         }
         Text(
@@ -364,6 +398,7 @@ private fun RecordSection(
         )
     }
 }
+
 
 @Composable
 private fun EmptyStateCard(onAddClick: () -> Unit) {
