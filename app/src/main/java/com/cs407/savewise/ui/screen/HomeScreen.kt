@@ -31,10 +31,15 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Savings
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -110,7 +115,7 @@ fun HomeScreen(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
         topBar = {
             TopAppBar(
-                title = { Text("Welcome $name") },
+                title = { Text("Dashboard") },
                 actions = {
                     IconButton(onClick = onSettingClick) {
                         Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
@@ -152,19 +157,14 @@ fun HomeScreen(
                 )
             }
 
-            // Monthly chart
-            item {
-                MonthlyExpenseChart(expenses = expenses)
-            }
 
-            if (expenses.isEmpty()) {
-                // Empty state card instead of blank area
+            // Monthly chart
+            if (expenses.isNotEmpty()) {
+                // Monthly chart
                 item {
-                    EmptyStateCard(
-                        onAddClick = { showAddDialog = true }
-                    )
+                    MonthlyExpenseChart(expenses = expenses)
                 }
-            } else {
+
                 item {
                     Text(
                         text = "Recent expenses",
@@ -180,6 +180,11 @@ fun HomeScreen(
                             println("Clicked on ${expense.title}")
                         }
                     )
+                }
+            } else {
+                // Replaces the old empty chart and empty card with a single illustration
+                item {
+                    EmptyStateIllustration()
                 }
             }
         }
@@ -215,27 +220,50 @@ private fun SummaryCard(expenses: List<ExpenseRecord>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF4F8CF9), // Brand Blue
+                            Color(0xFF84B2FF)  // Lighter Blue
+                        )
+                    )
+                )
+                .padding(24.dp)
         ) {
-            Text(
-                text = "This session",
-                style = MaterialTheme.typography.labelMedium
-            )
-            Text(
-                text = String.format("$%.2f", total),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
-                text = if (count == 0) "No expenses yet"
-                else "$count expense${if (count > 1) "s" else ""} recorded",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "This Month's Spending",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+
+                // Amount Display
+                Text(
+                    text = String.format("$%.2f", total),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        // Monospace to prevent jumping
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = Color.White,
+                    fontSize = 36.sp
+                )
+
+                if (total == 0.0) {
+                    Text(
+                        text = "Ready to track",
+                        style = MaterialTheme.typography.labelMedium,
+                        color = Color.White.copy(alpha = 0.8f)
+                    )
+                }
+            }
         }
     }
 }
@@ -243,28 +271,43 @@ private fun SummaryCard(expenses: List<ExpenseRecord>) {
 @Composable
 private fun AiTipCard(aiTip: String) {
     if (aiTip.isBlank()) return
+    val containerColor = Color(0xFFFFECB3) // Light amber/orange
+    val contentColor = Color(0xFF6D4C00)   // Darker amber/brown
+    val iconColor = Color(0xFFEF6C00)      // Deep Orange
+
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            containerColor = containerColor
         )
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top, // Align to top in case text wraps
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                imageVector = Icons.Default.TrendingUp,
+                contentDescription = "Insight",
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
             )
-            Text(
-                text = aiTip,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Column {
+                Text(
+                    text = "Spending Insight",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = iconColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = aiTip,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor
+                )
+            }
         }
     }
 }
@@ -281,14 +324,21 @@ private fun RecordSection(
         verticalArrangement = Arrangement.spacedBy(12.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
-        AnimatedRecordButton(
-            onStart = onStartSpeech,
-            onStop = onStopSpeech,
-            onFinished = {}
-        )
+        Box(
+            modifier = Modifier.fillMaxWidth(0.6f), // 这里将宽度限制为屏幕宽度的 50%，您可以根据需要调整这个比例（例如 0.4f 或 0.6f）
+            contentAlignment = Alignment.Center
+        ) {
+            AnimatedRecordButton(
+                onStart = onStartSpeech,
+                onStop = onStopSpeech,
+                onFinished = {}
+            )
+        }
         Text(
             text = "Tap to record a new expense",
-            style = MaterialTheme.typography.bodyMedium
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary,
+            fontWeight = FontWeight.Bold
         )
     }
 }
@@ -320,6 +370,41 @@ private fun EmptyStateCard(onAddClick: () -> Unit) {
             TextButton(onClick = onAddClick) {
                 Text("Add expense")
             }
+        }
+    }
+}
+
+@Composable
+private fun EmptyStateIllustration() {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 48.dp),
+        horizontalAlignment = Alignment.CenterHorizontally,
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        // Placeholder Illustration (Piggy Bank Icon)
+        // Ideally, replace this Icon with an Image(painter = painterResource(id = R.drawable.illustration_empty_wallet)...)
+        Icon(
+            imageVector = Icons.Default.Savings, // A sleeping piggy bank metaphor
+            contentDescription = "No expenses",
+            modifier = Modifier.size(100.dp),
+            tint = MaterialTheme.colorScheme.primary.copy(alpha = 0.2f)
+        )
+
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Text(
+                text = "No expenses yet",
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.6f)
+            )
+            Spacer(modifier = Modifier.height(4.dp))
+            Text(
+                text = "Tap + or use the microphone to start tracking.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
         }
     }
 }
