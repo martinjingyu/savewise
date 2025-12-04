@@ -63,9 +63,14 @@ import java.time.format.DateTimeFormatter
 import java.util.Locale
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import com.cs407.savewise.viewModel.ExpenseFilter
 
@@ -113,7 +118,8 @@ fun ExpenseScreen() {
                     CategoryFilterRow(
                         categories = categories,
                         selected = filter.categories,
-                        onToggle = { cat -> vm.toggleCategory(cat) }
+                        onToggle = { cat -> vm.toggleCategory(cat) },
+                        onClear = { vm.clearFilters() }
                     )
                 }
             }
@@ -266,26 +272,33 @@ private fun ExpensesSummaryCard(expenses: List<ExpenseRecord>) {
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+            containerColor = MaterialTheme.colorScheme.primary
+        ),
+        elevation = CardDefaults.cardElevation(defaultElevation = 4.dp)
     ) {
         Column(
-            modifier = Modifier.padding(16.dp),
+            modifier = Modifier.padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(
                 text = "Total spent",
-                style = MaterialTheme.typography.labelMedium
+                style = MaterialTheme.typography.titleSmall,
+                // 2. 使用白色文字，稍微降低透明度作为副标题
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.9f)
             )
             Text(
                 text = String.format("$%.2f", total),
-                style = MaterialTheme.typography.headlineSmall
+                // 3. 字号加大，字重加粗
+                style = MaterialTheme.typography.headlineLarge,
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.onPrimary
             )
             Text(
                 text = if (count == 0) "No expenses recorded"
                 else "$count expense${if (count > 1) "s" else ""}",
                 style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                // 副文本也使用白色，透明度低一点
+                color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.8f)
             )
         }
     }
@@ -295,24 +308,69 @@ private fun ExpensesSummaryCard(expenses: List<ExpenseRecord>) {
 private fun CategoryFilterRow(
     categories: Set<String>,
     selected: Set<String>,
-    onToggle: (String) -> Unit
+    onToggle: (String) -> Unit,
+    onClear: () -> Unit
 ) {
     Row(
         modifier = Modifier
             .fillMaxWidth()
             .horizontalScroll(rememberScrollState()),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)
-    ) {
-        categories.sorted().forEach { cat ->
-            val isSelected = cat in selected
-            FilterChip(
-                selected = isSelected,
-                onClick = { onToggle(cat) },
-                label = { Text(cat) },
-                modifier = Modifier
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        // 增加一些水平内边距，防止第一个和最后一个贴边太紧
+        content = {
+            Spacer(modifier = Modifier.width(16.dp))
+
+            // --- 1. "All" 胶囊 ---
+            val isAllSelected = selected.isEmpty()
+            CustomFilterChip(
+                selected = isAllSelected,
+                label = "All",
+                onClick = onClear
             )
+
+            // --- 2. 具体分类胶囊 ---
+            categories.sorted().forEach { cat ->
+                val isSelected = cat in selected
+                CustomFilterChip(
+                    selected = isSelected,
+                    label = cat,
+                    onClick = { onToggle(cat) }
+                )
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
         }
-    }
+    )
+}
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun CustomFilterChip(
+    selected: Boolean,
+    label: String,
+    onClick: () -> Unit
+) {
+    FilterChip(
+        selected = selected,
+        onClick = onClick,
+        label = {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelLarge,
+                modifier = Modifier.padding(vertical = 4.dp) // 稍微增加一点高度点击区域
+            )
+        },
+        shape = CircleShape, // 胶囊形状
+        border = null,       // 去除边框，实现"填充"风格
+        // 自定义颜色
+        colors = FilterChipDefaults.filterChipColors(
+            selectedContainerColor = MaterialTheme.colorScheme.primary, // 选中：蓝色背景
+            selectedLabelColor = MaterialTheme.colorScheme.onPrimary,   // 选中：白色文字
+            containerColor = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f), // 未选中：浅灰背景
+            labelColor = MaterialTheme.colorScheme.onSurfaceVariant     // 未选中：深灰文字
+        ),
+        // 隐藏默认的勾选图标，保持纯文字胶囊外观
+        leadingIcon = null
+    )
 }
 
 @Composable
@@ -353,22 +411,24 @@ private fun ExpenseRowCard(
                 Text(
                     text = expense.title,
                     style = MaterialTheme.typography.bodyLarge,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black, // Or MaterialTheme.colorScheme.onSurface
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
                 Text(
                     text = "${expense.category} - ${expense.date}",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    color = Color.Gray, // Or MaterialTheme.colorScheme.onSurfaceVariant
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
             }
-
             Text(
                 text = formatAmount(expense.amount),
                 style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.error
+                fontWeight = FontWeight.Bold,
+                color = MaterialTheme.colorScheme.error // Typically red
             )
         }
     }
@@ -455,7 +515,9 @@ private fun EditExpenseDialog(
                     onValueChange = { category = it },
                     label = { Text("Category") },
                     singleLine = true,
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
                 )
                 DateSelectorField(
                     label = "Date",
@@ -471,7 +533,9 @@ private fun EditExpenseDialog(
                     label = { Text("Amount") },
                     singleLine = true,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                    modifier = Modifier.fillMaxWidth().padding(top = 8.dp)
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp)
                 )
             }
         },
@@ -569,7 +633,9 @@ private fun FilterDialog(
                         .padding(top = 8.dp)
                 ) {
                     OutlinedTextField(
-                        modifier = Modifier.weight(1f).padding(end = 8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(end = 8.dp),
                         value = minText,
                         onValueChange = { minText = it },
                         label = { Text("Min $") },
@@ -577,7 +643,9 @@ private fun FilterDialog(
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
                     )
                     OutlinedTextField(
-                        modifier = Modifier.weight(1f).padding(start = 8.dp),
+                        modifier = Modifier
+                            .weight(1f)
+                            .padding(start = 8.dp),
                         value = maxText,
                         onValueChange = { maxText = it },
                         label = { Text("Max $") },
@@ -700,11 +768,15 @@ private fun FilterDialog(
     }
 }
 
-private fun iconForCategory(category: String): ImageVector = when (category) {
-    "Dining" -> Icons.Filled.LocalDining
-    "Transport" -> Icons.Filled.DirectionsCar
-    "Entertainment" -> Icons.Filled.Movie
-    else -> Icons.Filled.ShoppingCart
+private fun iconForCategory(category: String): ImageVector {
+    // 这里进行了简单的字符串匹配，你可以根据实际的分类名称添加更多 case
+    return when (category) {
+        "Dining", "Food", "Lunch", "Dinner" -> Icons.Filled.LocalDining
+        "Transport", "Transportation", "Taxi", "Uber" -> Icons.Filled.DirectionsCar
+        "Entertainment", "Movie", "Games" -> Icons.Filled.Movie
+        "Shopping", "Groceries" -> Icons.Filled.ShoppingCart
+        else -> Icons.Filled.ShoppingCart
+    }
 }
 
 private fun formatAmount(amount: Double): String = "-$" + String.format("%.2f", amount)
