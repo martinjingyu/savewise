@@ -6,7 +6,6 @@ import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.cs407.savewise.NoteScreen
 import com.cs407.savewise.auth.updateName
-import com.cs407.savewise.data.DeleteDao
 
 //import com.cs407.savewise.data.NoteDatabase
 import com.cs407.savewise.data.UserState
