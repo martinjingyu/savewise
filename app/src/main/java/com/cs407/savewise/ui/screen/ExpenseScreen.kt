@@ -768,11 +768,15 @@ private fun FilterDialog(
     }
 }
 
-private fun iconForCategory(category: String): ImageVector = when (category) {
-    "Dining" -> Icons.Filled.LocalDining
-    "Transport" -> Icons.Filled.DirectionsCar
-    "Entertainment" -> Icons.Filled.Movie
-    else -> Icons.Filled.ShoppingCart
+private fun iconForCategory(category: String): ImageVector {
+    // 这里进行了简单的字符串匹配，你可以根据实际的分类名称添加更多 case
+    return when (category) {
+        "Dining", "Food", "Lunch", "Dinner" -> Icons.Filled.LocalDining
+        "Transport", "Transportation", "Taxi", "Uber" -> Icons.Filled.DirectionsCar
+        "Entertainment", "Movie", "Games" -> Icons.Filled.Movie
+        "Shopping", "Groceries" -> Icons.Filled.ShoppingCart
+        else -> Icons.Filled.ShoppingCart
+    }
 }
 
 private fun formatAmount(amount: Double): String = "-$" + String.format("%.2f", amount)
