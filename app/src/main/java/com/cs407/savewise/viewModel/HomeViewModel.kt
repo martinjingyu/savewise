@@ -159,5 +159,24 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun onSpeechStop() {
         println("🛑【停止录音】")
     }
+    fun handelUserInput(string: String) {
+        viewModelScope.launch {
+            chatRepository.sendTextToGpt(string, _recentExpenses.value).collect { result ->
+                result
+                    .onSuccess { processed ->
 
+                        println("🤖 GPT 回复：$processed")
+
+                        // ✔ 用 GPT 处理后的内容更新
+                        _aiTip.value = processed
+
+                    }
+                    .onFailure { e ->
+                        println(e)
+                        _aiTip.value = "GPT Error：${e.message}"
+                    }
+            }
+        }
+        _aiTip.value = "Responding..."
+    }
 }
