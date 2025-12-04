@@ -28,6 +28,7 @@ import android.widget.Toast
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
+import androidx.compose.foundation.clickable
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
@@ -168,7 +169,7 @@ fun HomeScreen(
 
             // AI tip card
             item {
-                AiTipCard(aiTip = aiTip)
+                AiTipCard(aiTip = aiTip, viewModel = viewModel)
             }
 
             // Big record button + label
@@ -291,12 +292,13 @@ private fun SummaryCard(expenses: List<ExpenseRecord>) {
 }
 
 @Composable
-private fun AiTipCard(aiTip: String) {
+private fun AiTipCard(aiTip: String, viewModel: HomeViewModel) {
     if (aiTip.isBlank()) return
     val containerColor = Color(0xFFFFECB3) // Light amber/orange
     val contentColor = Color(0xFF6D4C00)   // Darker amber/brown
     val iconColor = Color(0xFFEF6C00)      // Deep Orange
-
+    var showDialog by remember { mutableStateOf(false) }
+    var userInput by remember { mutableStateOf("") }
 
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -316,7 +318,11 @@ private fun AiTipCard(aiTip: String) {
                 tint = iconColor,
                 modifier = Modifier.size(24.dp)
             )
-            Column {
+            Column(
+                modifier = Modifier
+                    .clickable { showDialog = true }
+                    .padding(8.dp)
+            ) {
                 Text(
                     text = "Spending Insight",
                     style = MaterialTheme.typography.labelMedium,
@@ -328,6 +334,43 @@ private fun AiTipCard(aiTip: String) {
                     text = aiTip,
                     style = MaterialTheme.typography.bodyMedium,
                     color = contentColor
+                )
+            }
+            if (showDialog) {
+                AlertDialog(
+                    onDismissRequest = { showDialog = false },
+                    title = { Text("Ask AI") },
+                    text = {
+                        Column {
+                            Text("Your Input:")
+                            Spacer(modifier = Modifier.height(4.dp))
+                            TextField(
+                                value = userInput,
+                                onValueChange = {
+                                    userInput = it
+                                                },
+                                placeholder = { Text("Ask me anything...") },
+                                modifier = Modifier.fillMaxWidth()
+                            )
+                            Spacer(modifier = Modifier.height(12.dp))
+                            Text("AI Suggestion:")
+                            Spacer(modifier = Modifier.height(4.dp))
+                            Text(
+                                text = aiTip,
+                                style = MaterialTheme.typography.bodyMedium
+                            )
+                        }
+                    },
+                    confirmButton = {
+                        TextButton(onClick = {viewModel.handelUserInput(userInput)}) {
+                            Text("Send")
+                        }
+                    },
+                    dismissButton = {
+                        TextButton(onClick = { showDialog = false }) {
+                            Text("Close")
+                        }
+                    }
                 )
             }
         }
