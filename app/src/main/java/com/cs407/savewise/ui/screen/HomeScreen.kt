@@ -31,10 +31,13 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.PaddingValues
-import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.TrendingUp
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.unit.sp
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -215,27 +218,42 @@ private fun SummaryCard(expenses: List<ExpenseRecord>) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.surfaceVariant
-        )
+        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
     ) {
-        Column(
-            modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+        Box(
+            modifier = Modifier
+                .background(
+                    brush = Brush.horizontalGradient(
+                        colors = listOf(
+                            Color(0xFF4F8CF9), // Brand Blue
+                            Color(0xFF84B2FF)  // Lighter Blue
+                        )
+                    )
+                )
+                .padding(24.dp)
         ) {
-            Text(
-                text = "This session",
-                style = MaterialTheme.typography.labelMedium
-            )
-            Text(
-                text = String.format("$%.2f", total),
-                style = MaterialTheme.typography.headlineSmall
-            )
-            Text(
-                text = if (count == 0) "No expenses yet"
-                else "$count expense${if (count > 1) "s" else ""} recorded",
-                style = MaterialTheme.typography.bodyMedium
-            )
+            Column(
+                modifier = Modifier.fillMaxWidth(),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = "This Month's Spending",
+                    style = MaterialTheme.typography.labelLarge,
+                    color = Color.White.copy(alpha = 0.9f)
+                )
+
+                // Amount Display
+                Text(
+                    text = String.format("$%.2f", total),
+                    style = MaterialTheme.typography.displaySmall.copy(
+                        fontWeight = FontWeight.Bold,
+                        // Monospace to prevent jumping
+                        fontFeatureSettings = "tnum"
+                    ),
+                    color = Color.White,
+                    fontSize = 36.sp
+                )
+            }
         }
     }
 }
@@ -243,28 +261,43 @@ private fun SummaryCard(expenses: List<ExpenseRecord>) {
 @Composable
 private fun AiTipCard(aiTip: String) {
     if (aiTip.isBlank()) return
+    val containerColor = Color(0xFFFFECB3) // Light amber/orange
+    val contentColor = Color(0xFF6D4C00)   // Darker amber/brown
+    val iconColor = Color(0xFFEF6C00)      // Deep Orange
+
 
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(
-            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+            containerColor = containerColor
         )
     ) {
         Row(
             modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.Top, // Align to top in case text wraps
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             Icon(
-                imageVector = Icons.Default.Info,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.primary
+                imageVector = Icons.Default.TrendingUp,
+                contentDescription = "Insight",
+                tint = iconColor,
+                modifier = Modifier.size(24.dp)
             )
-            Text(
-                text = aiTip,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface
-            )
+            Column {
+                Text(
+                    text = "Spending Insight",
+                    style = MaterialTheme.typography.labelMedium,
+                    color = iconColor,
+                    fontWeight = FontWeight.Bold
+                )
+                Spacer(modifier = Modifier.height(2.dp))
+                Text(
+                    text = aiTip,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = contentColor
+                )
+            }
         }
     }
 }

@@ -1,6 +1,11 @@
 package com.cs407.savewise.ui.component
 
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.tween
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.layout.Box
@@ -10,6 +15,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.Mic
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
 import androidx.compose.material3.Button
@@ -40,10 +46,23 @@ fun AnimatedRecordButton(
     var boxWidthPx by remember { mutableStateOf(0f) }
     val density = LocalDensity.current
 
+    // 1. 定义无限循环动画，用于涟漪效果
+    val infiniteTransition = rememberInfiniteTransition(label = "ripple")
+    val phase by infiniteTransition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(durationMillis = 1500, easing = LinearEasing),
+            repeatMode = RepeatMode.Restart
+        ),
+        label = "phase"
+    )
+
     // 动画旋转
     val iconRotation by animateFloatAsState(
         targetValue = if (isRecording) 180f else 0f,
-        animationSpec = tween(durationMillis = 400)
+        animationSpec = tween(durationMillis = 400),
+        label = "rotation"
     )
 
     // 倒计时动画逻辑
@@ -76,6 +95,31 @@ fun AnimatedRecordButton(
             },
         contentAlignment = Alignment.Center
     ) {
+        val buttonSizePx = boxWidthPx / 1.5f
+        val buttonRadius = buttonSizePx / 2f
+
+        if (isRecording && boxWidthPx > 0f) {
+            Canvas(modifier = Modifier.matchParentSize()) {
+                // 绘制 3 个波纹，通过相位偏移 (offset) 错开
+                val ripples = listOf(0f, 0.33f, 0.66f)
+
+                ripples.forEach { offset ->
+                    val currentPhase = (phase + offset) % 1f
+
+                    // 半径从 按钮半径(1.0x) 扩散到 容器边缘(大约 1.5x)
+                    val rippleRadius = buttonRadius + (buttonRadius * 0.6f * currentPhase)
+
+                    // 透明度从 0.5 变到 0
+                    val rippleAlpha = (0.5f * (1f - currentPhase)).coerceIn(0f, 1f)
+
+                    drawCircle(
+                        color = Color(0xFF4F8CF9).copy(alpha = rippleAlpha),
+                        radius = rippleRadius,
+                        center = center
+                    )
+                }
+            }
+        }
 
         Canvas(
             modifier = Modifier
@@ -126,7 +170,7 @@ fun AnimatedRecordButton(
                 )
             } else {
                 Icon(
-                    imageVector = Icons.Default.PlayArrow,
+                    imageVector = Icons.Default.Mic,
                     contentDescription = "Start Recording",
                     modifier = Modifier.size(80.dp)
                 )
