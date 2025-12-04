@@ -40,6 +40,7 @@ import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
+import java.time.LocalDate
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -115,7 +116,28 @@ fun HomeScreen(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
         topBar = {
             TopAppBar(
-                title = { Text("Dashboard") },
+                title = {
+                    Column {
+                        // Dynamic Greeting Logic
+                        val currentHour = java.time.LocalTime.now().hour
+                        val greeting = when (currentHour) {
+                            in 5..11 -> "Good Morning"
+                            in 12..17 -> "Good Afternoon"
+                            else -> "Good Evening"
+                        }
+
+                        Text(
+                            text = greeting,
+                            style = MaterialTheme.typography.headlineMedium,
+                            fontWeight = FontWeight.Bold
+                        )
+                        Text(
+                            text = LocalDate.now().format(java.time.format.DateTimeFormatter.ofPattern("MMMM d, yyyy")),
+                            style = MaterialTheme.typography.labelMedium,
+                            color = Color.Gray
+                        )
+                    }
+                },
                 actions = {
                     IconButton(onClick = onSettingClick) {
                         Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
