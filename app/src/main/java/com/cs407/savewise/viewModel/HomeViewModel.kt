@@ -3,7 +3,7 @@ package com.cs407.savewise.viewModel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.cs407.savewise.data.ExpenseStorage
+import com.cs407.savewise.data.ExpenseRepository
 import com.cs407.savewise.model.ExpenseRecord
 import com.cs407.savewise.service.ChatRepository
 import com.google.firebase.auth.FirebaseAuth
@@ -18,7 +18,8 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _shouldOpenAddDialog = MutableStateFlow(false)
 
-    private val storage = ExpenseStorage(application.applicationContext)
+    private val repository = ExpenseRepository(application.applicationContext)
+    private var currentOwnerUid: String? = null
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var expensesJob: Job? = null
     private val chatRepository = ChatRepository()
@@ -63,29 +64,35 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private fun subscribeToExpenses(ownerUid: String?) {
         expensesJob?.cancel()
+        currentOwnerUid?.let { repository.stopRemoteSync(it) }
+        currentOwnerUid = ownerUid
+
         if (ownerUid.isNullOrBlank()) {
             _recentExpenses.value = emptyList()
             return
         }
+        repository.startRemoteSync(ownerUid)
         expensesJob = viewModelScope.launch {
-            storage.seedDefaultsIfEmpty()
-            storage.expensesForUser(ownerUid).collect { stored ->
+            repository.observeExpenses(ownerUid).collect { stored ->
                 _recentExpenses.value = stored.sortedByDescending { it.date }
             }
         }
+        viewModelScope.launch { repository.syncNow(ownerUid) }
     }
 
     fun addExpense(record: ExpenseRecord) {
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.addExpense(uid, record)
+            repository.addExpense(uid, record)
         }
     }
 
     fun clearExpenses() {
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.replaceAll(uid, emptyList())
+            _recentExpenses.value.forEach { exp ->
+                repository.deleteExpense(uid, exp.id)
+            }
         }
     }
 

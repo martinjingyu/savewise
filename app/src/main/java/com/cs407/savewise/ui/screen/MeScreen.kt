@@ -62,7 +62,6 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
-import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
@@ -174,6 +173,7 @@ fun MeScreen(
 
         composable(MeRoutes.DataAndBackup) {
             DataAndBackupScreen(
+                vm = vm,
                 onBack = { nav.navigateUp() }
             )
         }
@@ -952,9 +952,9 @@ private fun AppearanceAndThemeScreen(
 
 
 @Composable
-private fun DataAndBackupScreen(onBack: () -> Unit) {
-    var autoBackupEnabled by remember { mutableStateOf(false) }
-    var wifiOnly by remember { mutableStateOf(true) }
+private fun DataAndBackupScreen(vm: MeViewModel, onBack: () -> Unit) {
+    val state by vm.uiState.collectAsState()
+    var lastBackupLabel by remember { mutableStateOf("Never") }
 
     Scaffold(
         topBar = {
@@ -986,13 +986,16 @@ private fun DataAndBackupScreen(onBack: () -> Unit) {
                 )
                 Spacer(Modifier.height(4.dp))
                 Text(
-                    text = "Last backup: Never",
+                    text = "Last backup: $lastBackupLabel",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
                 Spacer(Modifier.height(12.dp))
                 Button(
-                    onClick = { /* TODO: trigger backup later */ }
+                    onClick = {
+                        vm.backupNow()
+                        lastBackupLabel = "Just now"
+                    }
                 ) {
                     Text("Back up now")
                 }
@@ -1013,11 +1016,11 @@ private fun DataAndBackupScreen(onBack: () -> Unit) {
                     title = "Enable auto backup",
                     trailing = {
                         Switch(
-                            checked = autoBackupEnabled,
-                            onCheckedChange = { autoBackupEnabled = it }
+                            checked = state.autoBackupEnabled,
+                            onCheckedChange = { vm.setAutoBackupEnabled(it) }
                         )
                     },
-                    onClick = { autoBackupEnabled = !autoBackupEnabled }
+                    onClick = { vm.setAutoBackupEnabled(!state.autoBackupEnabled) }
                 )
             }
 
@@ -1026,11 +1029,11 @@ private fun DataAndBackupScreen(onBack: () -> Unit) {
                     title = "Wi-Fi only",
                     trailing = {
                         Switch(
-                            checked = wifiOnly,
-                            onCheckedChange = { wifiOnly = it }
+                            checked = state.wifiOnlyBackup,
+                            onCheckedChange = { vm.setWifiOnlyBackup(it) }
                         )
                     },
-                    onClick = { wifiOnly = !wifiOnly }
+                    onClick = { vm.setWifiOnlyBackup(!state.wifiOnlyBackup) }
                 )
             }
 
