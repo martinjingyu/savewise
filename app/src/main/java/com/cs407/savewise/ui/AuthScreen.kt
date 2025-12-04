@@ -19,6 +19,13 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.cs407.savewise.data.UserState
+import androidx.compose.material3.Checkbox
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import com.cs407.savewise.auth.LoginPrefs
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.material3.Checkbox
 
 @Composable
 fun AuthScreen(
@@ -96,9 +103,23 @@ private fun AuthLoginCard(
     onSwitchToSignUp: () -> Unit,
     loginButtonClick: (UserState, Boolean) -> Unit,
 ) {
+    val context = LocalContext.current
+
     var email by rememberSaveable { mutableStateOf("") }
     var password by rememberSaveable { mutableStateOf("") }
     var error by remember { mutableStateOf<String?>(null) }
+
+    var rememberPassword by rememberSaveable { mutableStateOf(false) }
+    var loadedFromPrefs by remember { mutableStateOf(false) }
+
+    // Load saved email/password when the composable first shows
+    LaunchedEffect(Unit) {
+        val saved = LoginPrefs.load(context)
+        email = saved.email
+        password = saved.password
+        rememberPassword = saved.rememberPassword
+        loadedFromPrefs = true
+    }
 
     Card(
         shape = RoundedCornerShape(32.dp),
@@ -149,13 +170,31 @@ private fun AuthLoginCard(
                 onValueChange = { password = it },
                 label = { Text("Enter Password") },
                 singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
                 keyboardOptions = KeyboardOptions(
                     keyboardType = KeyboardType.Password,
                     imeAction = ImeAction.Done
                 ),
+                visualTransformation = PasswordVisualTransformation(),
                 modifier = Modifier.fillMaxWidth()
             )
+
+            Spacer(Modifier.height(4.dp))
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Checkbox(
+                        checked = rememberPassword,
+                        onCheckedChange = { rememberPassword = it }
+                    )
+                    Text("Remember password")
+                }
+            }
 
             Spacer(Modifier.height(8.dp))
 
@@ -165,12 +204,20 @@ private fun AuthLoginCard(
                 modifier = Modifier.fillMaxWidth(),
                 onAuthSuccess = { user, isNameMissing ->
                     error = null
+                    // Save or clear remembered values based on the checkboxes
+                    LoginPrefs.save(
+                        context = context,
+                        email = email,
+                        password = password,
+                        rememberPassword = rememberPassword
+                    )
                     loginButtonClick(user, isNameMissing)
                 },
                 onAuthFailure = { msg ->
                     error = msg
                 }
             )
+
 
             Row(
                 modifier = Modifier
