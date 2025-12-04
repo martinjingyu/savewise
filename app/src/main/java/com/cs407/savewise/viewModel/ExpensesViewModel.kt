@@ -3,7 +3,7 @@ package com.cs407.savewise.viewModel
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.cs407.savewise.data.ExpenseStorage
+import com.cs407.savewise.data.ExpenseRepository
 import com.cs407.savewise.model.ExpenseRecord
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.Job
@@ -27,9 +27,10 @@ data class ExpensesUiState(
 )
 
 class ExpensesViewModel(application: Application) : AndroidViewModel(application) {
-    private val storage = ExpenseStorage(application.applicationContext)
+    private val repository = ExpenseRepository(application.applicationContext)
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     private var expensesJob: Job? = null
+    private var currentOwnerUid: String? = null
 
     private val _allExpenses = MutableStateFlow<List<ExpenseRecord>>(emptyList())
     private val _filter = MutableStateFlow(ExpenseFilter())
@@ -89,21 +90,21 @@ class ExpensesViewModel(application: Application) : AndroidViewModel(application
     fun addExpense(record: ExpenseRecord) {
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.addExpense(uid, record)
+            repository.addExpense(uid, record)
         }
     }
 
     fun deleteExpense(id: Long) {
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.deleteExpense(uid, id)
+            repository.deleteExpense(uid, id)
         }
     }
 
     fun updateExpense(updated: ExpenseRecord) {
         val uid = auth.currentUser?.uid ?: return
         viewModelScope.launch {
-            storage.updateExpense(uid, updated)
+            repository.updateExpense(uid, updated)
         }
     }
 
@@ -162,18 +163,22 @@ class ExpensesViewModel(application: Application) : AndroidViewModel(application
 
     private fun subscribeToExpenses(ownerUid: String?) {
         expensesJob?.cancel()
+        currentOwnerUid?.let { repository.stopRemoteSync(it) }
+        currentOwnerUid = ownerUid
+
         if (ownerUid.isNullOrBlank()) {
             _allExpenses.value = emptyList()
             recomputeDerived()
             return
         }
         expensesJob = viewModelScope.launch {
-            storage.seedDefaultsIfEmpty()
-            storage.expensesForUser(ownerUid).collect { stored ->
+            repository.startRemoteSync(ownerUid)
+            repository.observeExpenses(ownerUid).collect { stored ->
                 _allExpenses.value = stored
                 recomputeDerived()
             }
         }
+        viewModelScope.launch { repository.syncNow(ownerUid) }
     }
 }
 

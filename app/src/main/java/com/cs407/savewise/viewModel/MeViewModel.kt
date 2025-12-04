@@ -1,9 +1,10 @@
 package com.cs407.savewise.viewModel
 
+import android.app.Application
 import android.net.Uri
 import android.util.Log
 import androidx.activity.result.launch
-import androidx.lifecycle.ViewModel
+import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import com.google.firebase.auth.UserProfileChangeRequest
 import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
+import com.cs407.savewise.data.UserPreferencesRepository
 
 
 enum class AppThemeMode {
@@ -32,14 +34,34 @@ data class MeUiState(
     val displayName: String = "",
     val profilePictureUri: String? = null,
     val themeMode: AppThemeMode = AppThemeMode.System,
+    val autoBackupEnabled: Boolean = false,
+    val wifiOnlyBackup: Boolean = true,
 )
 
-class MeViewModel : ViewModel() {
+class MeViewModel(application: Application) : AndroidViewModel(application) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
+    private val prefs = UserPreferencesRepository(application.applicationContext)
+    private val expenseRepo = com.cs407.savewise.data.ExpenseRepository(application.applicationContext)
     private val _uiState = MutableStateFlow(MeUiState())
 
     val uiState: StateFlow<MeUiState> = _uiState
     init {
+        viewModelScope.launch {
+            prefs.preferencesFlow.collect { stored ->
+                _uiState.update { state ->
+                    state.copy(
+                        region = stored.region,
+                        autoRecording = stored.autoRecording,
+                        language = stored.language,
+                        recordingStorageDays = stored.recordingStorageDays,
+                        themeMode = stored.themeMode,
+                        autoBackupEnabled = stored.autoBackupEnabled,
+                        wifiOnlyBackup = stored.wifiOnlyBackup
+                    )
+                }
+                expenseRepo.setAutoSyncEnabled(stored.autoBackupEnabled)
+            }
+        }
         refreshDisplayNameFromFirebase()
     }
 
@@ -52,10 +74,22 @@ class MeViewModel : ViewModel() {
     }
 
     fun setUserName(name: String) = _uiState.update { it.copy(userName = name) }
-    fun setRegion(region: String) = _uiState.update { it.copy(region = region) }
-    fun setAutoRecording(enabled: Boolean) = _uiState.update { it.copy(autoRecording = enabled) }
-    fun setLanguage(lang: String) = _uiState.update { it.copy(language = lang) }
-    fun setRecordingStorageDays(days: Int) = _uiState.update { it.copy(recordingStorageDays = days) }
+    fun setRegion(region: String) {
+        _uiState.update { it.copy(region = region) }
+        viewModelScope.launch { prefs.setRegion(region) }
+    }
+    fun setAutoRecording(enabled: Boolean) {
+        _uiState.update { it.copy(autoRecording = enabled) }
+        viewModelScope.launch { prefs.setAutoRecording(enabled) }
+    }
+    fun setLanguage(lang: String) {
+        _uiState.update { it.copy(language = lang) }
+        viewModelScope.launch { prefs.setLanguage(lang) }
+    }
+    fun setRecordingStorageDays(days: Int) {
+        _uiState.update { it.copy(recordingStorageDays = days) }
+        viewModelScope.launch { prefs.setRecordingStorageDays(days) }
+    }
     fun updateProfilePicture(uri: Uri) {
         _uiState.update { it.copy(profilePictureUri = uri.toString()) }
     }
@@ -160,6 +194,27 @@ class MeViewModel : ViewModel() {
 
     fun updateThemeMode(mode: AppThemeMode) {
         _uiState.update { it.copy(themeMode = mode) }
+        viewModelScope.launch { prefs.setThemeMode(mode) }
+    }
+
+    fun setAutoBackupEnabled(enabled: Boolean) {
+        _uiState.update { it.copy(autoBackupEnabled = enabled) }
+        viewModelScope.launch {
+            prefs.setAutoBackupEnabled(enabled)
+            expenseRepo.setAutoSyncEnabled(enabled)
+        }
+    }
+
+    fun setWifiOnlyBackup(enabled: Boolean) {
+        _uiState.update { it.copy(wifiOnlyBackup = enabled) }
+        viewModelScope.launch { prefs.setWifiOnlyBackup(enabled) }
+    }
+
+    fun backupNow() {
+        val uid = auth.currentUser?.uid ?: return
+        viewModelScope.launch {
+            expenseRepo.syncNow(uid, force = true)
+        }
     }
 
     fun logout() {
