@@ -1,86 +1,104 @@
 package com.cs407.savewise.data
 
-import android.content.Context
-import androidx.datastore.core.DataStore
-import androidx.datastore.preferences.core.Preferences
-import androidx.datastore.preferences.core.edit
-import androidx.datastore.preferences.core.stringPreferencesKey
-import androidx.datastore.preferences.preferencesDataStore
 import com.cs407.savewise.model.ExpenseRecord
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.Query
+import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.flow.map
-import kotlinx.serialization.encodeToString
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.json.Json
+import kotlinx.coroutines.tasks.await
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
 
-private val Context.expensesDataStore: DataStore<Preferences> by preferencesDataStore(
-    name = "expenses_data_store"
-)
+class ExpenseStorage(
+    // Context no longer required for persistence, retained to avoid breaking call sites
+    @Suppress("UnusedParameter") private val context: android.content.Context
+) {
 
-class ExpenseStorage(private val context: Context) {
+    private val firestore: FirebaseFirestore = FirebaseFirestore.getInstance()
 
-    private val allExpenses: Flow<List<ExpenseRecord>> =
-        context.expensesDataStore.data.map { prefs -> decodeExpenses(prefs[EXPENSES_KEY]) }
+    fun expensesForUser(ownerUid: String, pageSize: Long? = null): Flow<List<ExpenseRecord>> {
+        val baseQuery = collection(ownerUid)
+            .orderBy("createdAt", Query.Direction.DESCENDING)
+        val query = pageSize?.let { baseQuery.limit(it) } ?: baseQuery
 
-    fun expensesForUser(ownerUid: String): Flow<List<ExpenseRecord>> =
-        allExpenses.map { list -> list.filter { it.ownerUid == ownerUid } }
+        return callbackFlow {
+            val listener = query.addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    trySend(emptyList()).isFailure
+                    return@addSnapshotListener
+                }
+                val mapped = snapshot?.documents.orEmpty()
+                    .mapNotNull { doc -> doc.toObject(ExpenseRecord::class.java) }
+                    .map { ensureOwnership(ensureDateFormat(it), ownerUid) }
+                trySend(mapped).isFailure
+            }
+            awaitClose { listener.remove() }
+        }.map { list -> list.sortedByDescending { it.createdAt } }
+    }
 
     suspend fun seedDefaultsIfEmpty() {
-        context.expensesDataStore.edit { prefs ->
-            if (!prefs.contains(EXPENSES_KEY)) {
-                prefs[EXPENSES_KEY] = json.encodeToString(emptyList<ExpenseRecord>())
-            }
-        }
+        // No-op; Firestore starts empty and is user-scoped
     }
 
     suspend fun addExpense(ownerUid: String, expense: ExpenseRecord) {
-        updateList(ownerUid) { owned, all ->
-            val record = ensureId(expense, all)
-            owned + record
-        }
+        val record = ensureOwnership(ensureMeta(expense), ownerUid)
+        collection(ownerUid)
+            .document(record.id.toString())
+            .set(record)
+            .await()
     }
 
     suspend fun updateExpense(ownerUid: String, expense: ExpenseRecord) {
-        updateList(ownerUid) { owned, _ ->
-            owned.map { if (it.id == expense.id) expense else it }
-        }
+        val record = ensureOwnership(ensureMeta(expense), ownerUid)
+        collection(ownerUid)
+            .document(record.id.toString())
+            .set(record)
+            .await()
     }
 
     suspend fun deleteExpense(ownerUid: String, id: Long) {
-        updateList(ownerUid) { owned, _ -> owned.filterNot { it.id == id } }
+        collection(ownerUid)
+            .document(id.toString())
+            .delete()
+            .await()
     }
 
     suspend fun replaceAll(ownerUid: String, expenses: List<ExpenseRecord>) {
-        updateList(ownerUid) { _, _ -> expenses }
-    }
-
-    private suspend fun updateList(
-        ownerUid: String,
-        transform: (owned: List<ExpenseRecord>, all: List<ExpenseRecord>) -> List<ExpenseRecord>
-    ) {
-        context.expensesDataStore.edit { prefs ->
-            val current = decodeExpenses(prefs[EXPENSES_KEY])
-            val (owned, others) = current.partition { it.ownerUid == ownerUid }
-            val updatedOwned = transform(owned, current)
-                .map { ensureOwnership(ensureDateFormat(it), ownerUid) }
-            prefs[EXPENSES_KEY] = json.encodeToString((others + updatedOwned).map(::ensureDateFormat))
+        clearExpenses(ownerUid)
+        if (expenses.isEmpty()) return
+        val chunks = expenses.map { ensureOwnership(ensureMeta(it), ownerUid) }.chunked(400)
+        for (chunk in chunks) {
+            val batch = firestore.batch()
+            val col = collection(ownerUid)
+            chunk.forEach { exp ->
+                batch.set(col.document(exp.id.toString()), exp)
+            }
+            batch.commit().await()
         }
     }
 
-    private fun decodeExpenses(raw: String?): List<ExpenseRecord> {
-        if (raw.isNullOrBlank()) return emptyList()
-        return runCatching { json.decodeFromString<List<ExpenseRecord>>(raw) }
-            .getOrElse { emptyList() }
-            .map(::ensureDateFormat)
+    private suspend fun clearExpenses(ownerUid: String) {
+        val col = collection(ownerUid)
+        while (true) {
+            val snapshot = col.limit(400).get().await()
+            if (snapshot.isEmpty) break
+            val batch = firestore.batch()
+            snapshot.documents.forEach { doc -> batch.delete(doc.reference) }
+            batch.commit().await()
+        }
     }
 
-    private fun ensureId(expense: ExpenseRecord, current: List<ExpenseRecord>): ExpenseRecord {
-        if (expense.id > 0) return expense
-        val nextId = (current.maxOfOrNull { it.id } ?: 0L) + 1L
-        return expense.copy(id = nextId)
+    private fun collection(ownerUid: String) =
+        firestore.collection("users").document(ownerUid).collection("expenses")
+
+    private fun ensureMeta(expense: ExpenseRecord): ExpenseRecord {
+        val now = System.currentTimeMillis()
+        val id = if (expense.id > 0) expense.id else now
+        val createdAt = if (expense.createdAt > 0) expense.createdAt else now
+        return expense.copy(id = id, createdAt = createdAt)
     }
 
     private fun ensureOwnership(expense: ExpenseRecord, ownerUid: String): ExpenseRecord {
@@ -89,8 +107,6 @@ class ExpenseStorage(private val context: Context) {
     }
 
     companion object {
-        private val EXPENSES_KEY = stringPreferencesKey("expenses_json")
-        private val json = Json { ignoreUnknownKeys = true }
         private val isoFormatter: DateTimeFormatter = DateTimeFormatter.ISO_LOCAL_DATE
         private val legacyFormatter: DateTimeFormatter =
             DateTimeFormatter.ofPattern("MM/dd/yyyy", Locale.getDefault())

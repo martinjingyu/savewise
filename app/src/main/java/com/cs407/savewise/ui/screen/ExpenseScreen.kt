@@ -61,6 +61,14 @@ import java.time.LocalDate
 import java.time.ZoneOffset
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.text.style.TextAlign
+import com.cs407.savewise.viewModel.ExpenseFilter
+
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalFoundationApi::class)
 @Composable
@@ -86,36 +94,61 @@ fun ExpenseScreen() {
             )
         }
     ) { innerPadding ->
-        Surface(modifier = Modifier.padding(innerPadding)) {
-            Column(modifier = Modifier.fillMaxSize()) {
-                if (expenses.isEmpty()) {
-                    Box(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .padding(24.dp),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Text(
-                            text = "No expenses match your filter",
-                            style = MaterialTheme.typography.bodyLarge,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                } else {
-                    LazyColumn(modifier = Modifier.fillMaxSize()) {
-                        items(expenses, key = { it.id }) { expense ->
-                            ExpenseRow(
-                                expense = expense,
-                                onClick = { editing = expense },
-                                onLongPress = { pendingDelete = expense }
-                            )
-                            Divider()
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
+        ) {
+            // 1) Summary card
+            item {
+                ExpensesSummaryCard(expenses = expenses)
+            }
+
+            // 2) Quick category chips
+            if (categories.isNotEmpty()) {
+                item {
+                    CategoryFilterRow(
+                        categories = categories,
+                        selected = filter.categories,
+                        onToggle = { cat -> vm.toggleCategory(cat) }
+                    )
+                }
+            }
+
+            // 3) List or empty state
+            if (expenses.isEmpty()) {
+                val hasActiveFilter = filter != ExpenseFilter()
+                item {
+                    ExpensesEmptyStateCard(
+                        hasFilter = hasActiveFilter,
+                        onClearFilters = {
+                            vm.clearFilters()
                         }
-                    }
+                    )
+                }
+            } else {
+                item {
+                    Text(
+                        text = "All expenses",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 4.dp)
+                    )
+                }
+                items(expenses, key = { it.id }) { expense ->
+                    ExpenseRowCard(
+                        expense = expense,
+                        onClick = { editing = expense },
+                        onLongPress = { pendingDelete = expense }
+                    )
                 }
             }
         }
     }
+
+    // keep your dialogs exactly as before
 
     if (editing != null) {
         EditExpenseDialog(
@@ -172,6 +205,7 @@ fun ExpenseScreen() {
     }
 }
 
+
 @Composable
 private fun ExpenseRow(
     expense: ExpenseRecord,
@@ -220,6 +254,165 @@ private fun ExpenseRow(
             style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.error
         )
+    }
+}
+
+@Composable
+private fun ExpensesSummaryCard(expenses: List<ExpenseRecord>) {
+    val total = expenses.sumOf { it.amount }
+    val count = expenses.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "Total spent",
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text(
+                text = String.format("$%.2f", total),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = if (count == 0) "No expenses recorded"
+                else "$count expense${if (count > 1) "s" else ""}",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun CategoryFilterRow(
+    categories: Set<String>,
+    selected: Set<String>,
+    onToggle: (String) -> Unit
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        categories.sorted().forEach { cat ->
+            val isSelected = cat in selected
+            FilterChip(
+                selected = isSelected,
+                onClick = { onToggle(cat) },
+                label = { Text(cat) },
+                modifier = Modifier
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpenseRowCard(
+    expense: ExpenseRecord,
+    onClick: (() -> Unit)? = null,
+    onLongPress: (() -> Unit)? = null
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(16.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .combinedClickable(
+                    onClick = { onClick?.invoke() },
+                    onLongClick = { onLongPress?.invoke() }
+                )
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            val icon = iconForCategory(expense.category)
+            Icon(
+                imageVector = icon,
+                contentDescription = expense.category,
+                tint = MaterialTheme.colorScheme.primary
+            )
+
+            Column(
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 12.dp)
+            ) {
+                Text(
+                    text = expense.title,
+                    style = MaterialTheme.typography.bodyLarge,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+                Text(
+                    text = "${expense.category} - ${expense.date}",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
+                )
+            }
+
+            Text(
+                text = formatAmount(expense.amount),
+                style = MaterialTheme.typography.bodyLarge,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
+    }
+}
+
+@Composable
+private fun ExpensesEmptyStateCard(
+    hasFilter: Boolean,
+    onClearFilters: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(20.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = if (hasFilter) "No expenses match your filter"
+                else "No expenses yet",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = if (hasFilter)
+                    "Try adjusting or clearing your filters."
+                else
+                    "Add an expense from the Home screen or with the + button.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center
+            )
+            if (hasFilter) {
+                TextButton(onClick = onClearFilters) {
+                    Text("Clear filters")
+                }
+            }
+        }
     }
 }
 

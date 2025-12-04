@@ -29,6 +29,13 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.ui.Alignment
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,7 +45,6 @@ fun HomeScreen(
     onStopSpeech: () -> Unit = {},
     onSettingClick: () -> Unit = {},
 ) {
-
     val shouldOpenAddDialog by viewModel.shouldOpenAddDialog.collectAsState()
     val expenses by viewModel.recentExpenses.collectAsState()
     val aiTip by viewModel.aiTip.collectAsState()
@@ -61,17 +67,18 @@ fun HomeScreen(
             }
         }
     )
+
     LaunchedEffect(Unit) {
         val hasPermission = ContextCompat.checkSelfPermission(
             context,
             Manifest.permission.RECORD_AUDIO
         ) == PackageManager.PERMISSION_GRANTED
 
-        // 如果没有权限，弹出对话框
         if (!hasPermission) {
             showPermissionDialog = true
         }
     }
+
     LaunchedEffect(shouldOpenAddDialog) {
         if (shouldOpenAddDialog) {
             showAddDialog = true
@@ -92,17 +99,12 @@ fun HomeScreen(
                 }
             },
             dismissButton = {
-                TextButton(onClick = {
-                    showPermissionDialog = false
-                }) {
+                TextButton(onClick = { showPermissionDialog = false }) {
                     Text("取消")
                 }
             }
         )
     }
-
-
-
 
     Scaffold(
         modifier = Modifier.windowInsetsPadding(WindowInsets.safeDrawing),
@@ -110,7 +112,7 @@ fun HomeScreen(
             TopAppBar(
                 title = { Text("Welcome $name") },
                 actions = {
-                    IconButton(onClick = { onSettingClick() }) {
+                    IconButton(onClick = onSettingClick) {
                         Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings")
                     }
                 }
@@ -126,64 +128,62 @@ fun HomeScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(innerPadding),
-            contentPadding = PaddingValues(bottom = 100.dp)
+                .padding(innerPadding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 100.dp)
         ) {
 
+            // Hero summary card
             item {
-                Box(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp)
-                        .background(
-                            color = Color(0x3348A9E6),
-                            shape = RoundedCornerShape(12.dp)
-                        )
-                        .padding(16.dp)
-                ) {
-                    Text(
-                        text = aiTip,
-                        style = MaterialTheme.typography.bodyLarge,
-                        color = MaterialTheme.colorScheme.onSurface,
-                    )
-                }
+                SummaryCard(expenses = expenses)
             }
 
-
+            // AI tip card
             item {
-                AnimatedRecordButton(
-                    onStart = { onStartSpeech() },
-                    onStop = { onStopSpeech()},
-                    onFinished = {
+                AiTipCard(aiTip = aiTip)
+            }
 
-                    }
+            // Big record button + label
+            item {
+                RecordSection(
+                    onStartSpeech = onStartSpeech,
+                    onStopSpeech = onStopSpeech
                 )
             }
 
+            // Monthly chart
             item {
                 MonthlyExpenseChart(expenses = expenses)
             }
 
-
-            item {
-                Text(
-                    text = "Recent Expenses",
-                    style = MaterialTheme.typography.titleMedium,
-                    modifier = Modifier.padding(start = 16.dp, top = 16.dp)
-                )
-            }
-
-
-            item {
-                ExpenseList(
-                    expenses = expenses,
-                    modifier = Modifier,
-                    onExpenseClick = { expense ->
-                        println("Clicked on ${expense.title}")
-                    }
-                )
+            if (expenses.isEmpty()) {
+                // Empty state card instead of blank area
+                item {
+                    EmptyStateCard(
+                        onAddClick = { showAddDialog = true }
+                    )
+                }
+            } else {
+                item {
+                    Text(
+                        text = "Recent expenses",
+                        style = MaterialTheme.typography.titleMedium,
+                        modifier = Modifier.padding(top = 8.dp)
+                    )
+                }
+                item {
+                    ExpenseList(
+                        expenses = expenses,
+                        modifier = Modifier.fillMaxWidth(),
+                        onExpenseClick = { expense ->
+                            println("Clicked on ${expense.title}")
+                        }
+                    )
+                }
             }
         }
+
         if (showAddDialog) {
             AddExpenseDialog(
                 expense = ExpenseRecord(
@@ -193,14 +193,133 @@ fun HomeScreen(
                     amount = expenseAmount,
                     date = ""
                 ),
-                onDismiss = { showAddDialog = false
-                    viewModel.resetAddDialogFlag() },
+                onDismiss = {
+                    showAddDialog = false
+                    viewModel.resetAddDialogFlag()
+                },
                 onSave = { newExpense ->
                     viewModel.addExpense(newExpense)
                     showAddDialog = false
                     viewModel.resetAddDialogFlag()
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun SummaryCard(expenses: List<ExpenseRecord>) {
+    val total = expenses.sumOf { it.amount }
+    val count = expenses.size
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier.padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            Text(
+                text = "This session",
+                style = MaterialTheme.typography.labelMedium
+            )
+            Text(
+                text = String.format("$%.2f", total),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = if (count == 0) "No expenses yet"
+                else "$count expense${if (count > 1) "s" else ""} recorded",
+                style = MaterialTheme.typography.bodyMedium
+            )
+        }
+    }
+}
+
+@Composable
+private fun AiTipCard(aiTip: String) {
+    if (aiTip.isBlank()) return
+
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f)
+        )
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Icon(
+                imageVector = Icons.Default.Info,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Text(
+                text = aiTip,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+@Composable
+private fun RecordSection(
+    onStartSpeech: () -> Unit,
+    onStopSpeech: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 8.dp),
+        verticalArrangement = Arrangement.spacedBy(12.dp),
+        horizontalAlignment = Alignment.CenterHorizontally
+    ) {
+        AnimatedRecordButton(
+            onStart = onStartSpeech,
+            onStop = onStopSpeech,
+            onFinished = {}
+        )
+        Text(
+            text = "Tap to record a new expense",
+            style = MaterialTheme.typography.bodyMedium
+        )
+    }
+}
+
+@Composable
+private fun EmptyStateCard(onAddClick: () -> Unit) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        )
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = "No expenses yet",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Text(
+                text = "Tap the + button to add your first expense.",
+                style = MaterialTheme.typography.bodyMedium
+            )
+            TextButton(onClick = onAddClick) {
+                Text("Add expense")
+            }
         }
     }
 }

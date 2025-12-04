@@ -1,10 +1,9 @@
 package com.cs407.savewise
 
 import android.os.Bundle
-
 import androidx.activity.compose.setContent
 import androidx.annotation.StringRes
-import androidx.compose.ui.platform.LocalContext
+import androidx.compose.foundation.isSystemInDarkTheme
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
@@ -14,36 +13,35 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.fragment.app.FragmentActivity
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.NavHostController
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
+import com.cs407.savewise.service.SpeechRecognizerHelper
+import com.cs407.savewise.service.WavAudioRecorder
+import com.cs407.savewise.service.WhisperApi
 import com.cs407.savewise.ui.AskNamePage
-import com.cs407.savewise.ui.LoginPage
+import com.cs407.savewise.ui.AuthScreen
 import com.cs407.savewise.ui.component.BottomNavBar
 import com.cs407.savewise.ui.component.Screen
 import com.cs407.savewise.ui.screen.ExpenseScreen
 import com.cs407.savewise.ui.screen.HomeScreen
 import com.cs407.savewise.ui.screen.MeScreen
 import com.cs407.savewise.ui.theme.SavewiseTheme
+import com.cs407.savewise.viewModel.AppThemeMode
+import com.cs407.savewise.viewModel.HomeViewModel
+import com.cs407.savewise.viewModel.MeViewModel
 import com.cs407.savewise.viewModel.ViewModel
 import com.google.firebase.Firebase
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.auth
-import com.cs407.savewise.service.SpeechRecognizerHelper
-import com.cs407.savewise.ui.AskNamePage
-import com.cs407.savewise.viewModel.HomeViewModel
-import androidx.fragment.app.FragmentActivity
-import com.cs407.savewise.service.WavAudioRecorder
-import com.cs407.savewise.service.WhisperApi
-import com.cs407.savewise.ui.SignUpPage
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 import java.io.File
-
 
 class MainActivity : FragmentActivity() {
     private lateinit var auth: FirebaseAuth
@@ -54,61 +52,71 @@ class MainActivity : FragmentActivity() {
         auth = Firebase.auth
         setContent {
             val homeViewModel: HomeViewModel = viewModel()
-            val speechHelper = remember {
-                SpeechRecognizerHelper(
-                    context = this,
-                    onResult = { homeViewModel.onSpeechResult(it) },
-                    onError = { homeViewModel.onSpeechError(it) }
-                )
-            }
-            val context = LocalContext.current
-            val scope = rememberCoroutineScope()
+            val meViewModel: MeViewModel = viewModel()
 
-            val audioFile = File(context.cacheDir, "speech.wav")
-
-            // ⭐ WAV Recorder
-            val recorder = remember {
-                WavAudioRecorder(
-                    context = context,
-                    file = audioFile,
-                    onError = { msg ->
-                        println("❌ Recorder error: $msg")
-                        homeViewModel.onSpeechError(msg)
-                    }
-                )
+            val meState by meViewModel.uiState.collectAsState()
+            val darkTheme = when (meState.themeMode) {
+                AppThemeMode.System -> isSystemInDarkTheme()
+                AppThemeMode.Light -> false
+                AppThemeMode.Dark -> true
             }
 
-            // ⭐ Whisper 调用逻辑封装成 lambda，供 UI 调用
-            val onStartSpeech = remember {
-                {
-                    homeViewModel.onSpeechStart()
-                    recorder.start()
+            SavewiseTheme(darkTheme = darkTheme) {
+                val speechHelper = remember {
+                    SpeechRecognizerHelper(
+                        context = this,
+                        onResult = { homeViewModel.onSpeechResult(it) },
+                        onError = { homeViewModel.onSpeechError(it) }
+                    )
                 }
-            }
+                val context = LocalContext.current
+                val scope = rememberCoroutineScope()
 
-            val onStopSpeech = remember {
-                {
-                    recorder.stop()
-                    homeViewModel.onSpeechStop()
+                val audioFile = File(context.cacheDir, "speech.wav")
 
-                    // 调 Whisper
-                    scope.launch {
-                        try {
-                            val text = WhisperApi.transcribe(audioFile)
-
-                            homeViewModel.onSpeechResult(text)
-                        } catch (e: Exception) {
-                            homeViewModel.onSpeechError(e.message ?: "error")
+                val recorder = remember {
+                    WavAudioRecorder(
+                        context = context,
+                        file = audioFile,
+                        onError = { msg ->
+                            println("❌ Recorder error: $msg")
+                            homeViewModel.onSpeechError(msg)
                         }
-                    }
-                    Unit
+                    )
                 }
+
+                val onStartSpeech = remember {
+                    {
+                        homeViewModel.onSpeechStart()
+                        recorder.start()
+                    }
+                }
+
+                val onStopSpeech = remember {
+                    {
+                        recorder.stop()
+                        homeViewModel.onSpeechStop()
+                        scope.launch {
+                            try {
+                                val text = WhisperApi.transcribe(audioFile)
+                                homeViewModel.onSpeechResult(text)
+                            } catch (e: Exception) {
+                                homeViewModel.onSpeechError(e.message ?: "error")
+                            }
+                        }
+                        Unit
+                    }
+                }
+
+                AppMain(
+                    homeViewModel = homeViewModel,
+                    meViewModel = meViewModel,
+                    onStartSpeech = onStartSpeech,
+                    onStopSpeech = onStopSpeech,
+                )
             }
-            AppMain(
-                homeViewModel = homeViewModel,
-                onStartSpeech = onStartSpeech,
-                onStopSpeech = onStopSpeech,)
         }
+
     }
 }
 
@@ -116,25 +124,24 @@ class MainActivity : FragmentActivity() {
 fun AppMain(
     viewModel: ViewModel = viewModel(),
     homeViewModel: HomeViewModel,
+    meViewModel: MeViewModel,
     onStartSpeech: () -> Unit,
     onStopSpeech: () -> Unit,
     navController: NavHostController = rememberNavController()
 ) {
-    //val navController = rememberNavController()
-
     val userState by viewModel.userState.collectAsState()
     val navigateTo by viewModel.navigateTo.collectAsState()
 
     LaunchedEffect(navigateTo) {
         navigateTo?.let { route ->
             navController.navigate(route) {
-                // Always clear the back stack up to Login when navigating away from it
+                // Clear back stack when going to Home
                 if (route == Screen.Home.route) {
                     popUpTo(navController.graph.startDestinationId) {
                         inclusive = true
                     }
                 }
-                launchSingleTop = true // Avoid creating multiple instances of the same screen
+                launchSingleTop = true
             }
             viewModel.onNavigationHandled()
         }
@@ -160,34 +167,36 @@ fun AppMain(
             startDestination = NoteScreen.Login.name,
             modifier = Modifier.padding(innerPadding)
         ) {
+            // Auth (flip card login + signup)
             composable(route = NoteScreen.Login.name) {
-                LoginPage(
-                    loginButtonClick = { user, isNameMissing  ->
+                AuthScreen(
+                    loginButtonClick = { user, isNameMissing ->
                         viewModel.setUser(user, isNameMissing)
+                        // keep names in sync
+                        homeViewModel.refreshUserNameFromFirebase()
+                        meViewModel.refreshDisplayNameFromFirebase()
                     },
-                    onSignUpClicked = {
-                        navController.navigate(NoteScreen.SignUp.name)
-                    }
-                )
-            }
-            composable(route = NoteScreen.SignUp.name) {
-                SignUpPage(
                     signUpButtonClick = { user, isNameMissing ->
                         viewModel.setUser(user, isNameMissing)
-                    },
-                    // This allows the user to navigate back to the login screen
-                    onLoginClicked = {
-                        navController.popBackStack() // Go back to the previous screen (LoginPage)
+                        // same after sign-up
+                        homeViewModel.refreshUserNameFromFirebase()
+                        meViewModel.refreshDisplayNameFromFirebase()
                     }
                 )
             }
+
+            // Ask for name right after first sign-up (if needed)
             composable(route = NoteScreen.AskName.name) {
                 AskNamePage(
                     onConfirmClick = { newName ->
                         viewModel.updateUserProfileName(newName)
+                        // 🔁 pull updated name from Firebase
+                        homeViewModel.refreshUserNameFromFirebase()
+                        meViewModel.refreshDisplayNameFromFirebase()
                     }
                 )
             }
+
             composable(Screen.Home.route) {
                 HomeScreen(
                     viewModel = homeViewModel,
@@ -203,11 +212,14 @@ fun AppMain(
                 )
             }
 
-            composable(Screen.Expense.route) { ExpenseScreen() }
+            composable(Screen.Expense.route) {
+                ExpenseScreen()
+            }
+
             composable(Screen.Me.route) {
                 MeScreen(
+                    vm = meViewModel,
                     onLogout = {
-                        // Go back to Login and clear the whole stack
                         navController.navigate(NoteScreen.Login.name) {
                             popUpTo(navController.graph.startDestinationId) {
                                 inclusive = true
@@ -216,7 +228,6 @@ fun AppMain(
                         }
                     },
                     onDeleteAccount = {
-                        // Go back to Login and clear the whole stack
                         navController.navigate(NoteScreen.Login.name) {
                             popUpTo(navController.graph.startDestinationId) {
                                 inclusive = true
@@ -226,10 +237,10 @@ fun AppMain(
                     },
                 )
             }
-
         }
     }
 }
+
 
 enum class NoteScreen(@param:StringRes val title: Int) {
     Login(title = R.string.login_screen),

@@ -69,6 +69,11 @@ import androidx.navigation.compose.rememberNavController
 import coil.compose.rememberAsyncImagePainter
 import com.cs407.savewise.viewModel.MeViewModel
 import kotlinx.coroutines.launch
+import com.cs407.savewise.viewModel.AppThemeMode
+import com.cs407.savewise.viewModel.ViewModel
+import androidx.compose.foundation.layout.PaddingValues
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 
 
 /* --------------------- ROUTES --------------------- */
@@ -93,20 +98,15 @@ private enum class NotificationMode {
     AlwaysOff
 }
 
-private enum class AppThemeMode {
-    Light,
-    Dark,
-    System,
-}
 
 /* --------------------- ENTRY --------------------- */
 @Composable
 fun MeScreen(
+    vm: MeViewModel,
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
     val nav = rememberNavController()
-    val vm: MeViewModel = viewModel()
 
     NavHost(navController = nav, startDestination = MeRoutes.Root) {
         composable(MeRoutes.Root) {
@@ -166,6 +166,7 @@ fun MeScreen(
         }
         composable(MeRoutes.AppearanceAndTheme) {
             AppearanceAndThemeScreen(
+                vm = vm,
                 onBack = { nav.navigateUp() }
             )
         }
@@ -238,8 +239,11 @@ private fun MeRootScreen(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(padding)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp),
+            contentPadding = PaddingValues(top = 16.dp, bottom = 32.dp)
         ) {
-            // highlighted "User Name" row
+            // Profile card at top
             item {
                 val name = state.displayName.ifBlank { "User Name" }
 
@@ -249,36 +253,25 @@ private fun MeRootScreen(
                     onClick = onOpenProfile
                 )
             }
-            item { Spacer(Modifier.height(8.dp)) }
-            items(rows) { (label, handler) ->
-                SettingsRow(title = label, onClick = handler)
-            }
+
+            // Settings section card
             item {
-                Spacer(Modifier.height(24.dp))
-                Button(
-                    onClick = {
-                        vm.logout()   // Firebase sign out + clear Me UI state
-                        onLogout()    // Navigate back to Login & clear back stack
+                SettingsSectionCard(rows = rows)
+            }
+
+            // Log out / delete section
+            item {
+                LogoutSection(
+                    onLogoutClick = {
+                        vm.logout()
+                        onLogout()
                     },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp)
-                ) {
-                    Text("Log out")
-                }
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { showDeleteConfirmationDialog = true },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 16.dp),
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error)
-                ) {
-                    Text("Delete Account")
-                }
+                    onDeleteClick = { showDeleteConfirmationDialog = true }
+                )
             }
         }
     }
+
 }
 
 /* --------------------- PROFILE --------------------- */
@@ -881,10 +874,11 @@ private fun NotificationsScreen(onBack: () -> Unit) {
 
 @Composable
 private fun AppearanceAndThemeScreen(
+    vm: MeViewModel,
     onBack: () -> Unit
 ) {
-    // Just keep this in memory for now
-    var selectedMode by remember { mutableStateOf(AppThemeMode.System) }
+    val state by vm.uiState.collectAsState()
+    val selectedMode = state.themeMode
 
     val options: List<Pair<AppThemeMode, String>> = listOf(
         AppThemeMode.System to "Use device theme",
@@ -919,7 +913,7 @@ private fun AppearanceAndThemeScreen(
             )
             Spacer(Modifier.height(8.dp))
             Text(
-                text = "Choose how SaveWise looks. (For now this only changes the option here.)",
+                text = "Choose how SaveWise looks.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -930,7 +924,7 @@ private fun AppearanceAndThemeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .clickable { selectedMode = mode }
+                        .clickable { vm.updateThemeMode(mode) }
                         .padding(vertical = 8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -942,7 +936,7 @@ private fun AppearanceAndThemeScreen(
                     }
                     RadioButton(
                         selected = (selectedMode == mode),
-                        onClick = { selectedMode = mode }
+                        onClick = { vm.updateThemeMode(mode) }
                     )
                 }
                 Divider(
@@ -953,6 +947,8 @@ private fun AppearanceAndThemeScreen(
         }
     }
 }
+
+
 
 
 @Composable
@@ -1198,19 +1194,21 @@ private fun HFAScreen(onBack: () -> Unit) {
 @Composable
 private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Unit) {
 
-    Surface(
-        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.10f),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surfaceVariant
+        ),
+        onClick = onClick
     ) {
         Row(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 14.dp),
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
             Box(
                 modifier = Modifier
-                    .size(28.dp)
+                    .size(40.dp)
                     .clip(CircleShape)
                     .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
                 contentAlignment = Alignment.Center
@@ -1245,7 +1243,56 @@ private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Un
             )
         }
     }
-    Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+}
+
+@Composable
+private fun SettingsSectionCard(
+    rows: List<Pair<String, () -> Unit>>
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column {
+            rows.forEachIndexed { index, (label, handler) ->
+                SettingsRow(
+                    title = label,
+                    onClick = handler,
+                    showDivider = index != rows.lastIndex
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LogoutSection(
+    onLogoutClick: () -> Unit,
+    onDeleteClick: () -> Unit
+) {
+    Column(
+        modifier = Modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Button(
+            onClick = onLogoutClick,
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            Text("Log out")
+        }
+        OutlinedButton(
+            onClick = onDeleteClick,
+            modifier = Modifier.fillMaxWidth(),
+            colors = ButtonDefaults.outlinedButtonColors(
+                contentColor = MaterialTheme.colorScheme.error
+            )
+        ) {
+            Text("Delete Account")
+        }
+    }
 }
 
 @Composable
@@ -1253,7 +1300,8 @@ private fun SettingsRow(
     title: String,
     value: String? = null,
     trailing: @Composable (() -> Unit)? = null,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    showDivider: Boolean = true
 ) {
     Column(
         modifier = Modifier
@@ -1274,13 +1322,22 @@ private fun SettingsRow(
                     )
                 }
             }
-            if (trailing != null) trailing()
-            else Icon(
-                imageVector = Icons.Outlined.ChevronRight,
-                contentDescription = null,
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
-            )
+            if (trailing != null) {
+                trailing()
+            } else {
+                Icon(
+                    imageVector = Icons.Outlined.ChevronRight,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
         }
     }
-    Divider(thickness = 0.5.dp, color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f))
+    if (showDivider) {
+        Divider(
+            thickness = 0.5.dp,
+            color = MaterialTheme.colorScheme.onSurface.copy(alpha = 0.08f)
+        )
+    }
 }
+
