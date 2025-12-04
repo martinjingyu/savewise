@@ -704,10 +704,7 @@ private fun VoiceInputScreen(
                 },
                 onClick = { vm.setAutoRecording(!state.autoRecording) }
             )
-            SettingsRow(
-                title = "Language",
-                value = state.language,
-                onClick = { /* language list later */ })
+
             SettingsRow(
                 title = "Recording storage",
                 value = when (state.recordingStorageDays) {
