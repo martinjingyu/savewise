@@ -11,7 +11,7 @@ import java.io.File
 object WhisperApi {
 
     private const val API_URL = "https://api.openai.com/v1/audio/transcriptions"
-    private const val API_KEY = "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"
+    private val API_KEY = EnvHelper.WHISPER_KEY
 
     suspend fun transcribe(file: File): String = withContext(Dispatchers.IO) {
 
