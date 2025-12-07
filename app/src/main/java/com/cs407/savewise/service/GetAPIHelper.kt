@@ -40,8 +40,7 @@ class ChatRepository {
     }
 }
 object GptApiHelper {
-
-    private const val API_KEY = "CaiYiOZxKiwqTa4RPVSPvcYSsnIlXqPw4rRBGyZQ3mSPJjrg5kWLJQQJ99BKACYeBjFXJ3w3AAABACOGA75q"
+    private val API_KEY = EnvHelper.API_KEY
     private const val ENDPOINT = "https://intern-jingyu-jh-east.openai.azure.com"
     private const val DEPLOYMENT = "gpt-4o" // Azure 的 deployment 名
     private const val API_VERSION = "2024-12-01-preview"
