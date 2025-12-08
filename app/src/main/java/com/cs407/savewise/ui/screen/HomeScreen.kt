@@ -64,29 +64,57 @@ fun HomeScreen(
     val expenseCategory by viewModel.expenseCategory.collectAsState()
     val expenseAmount by viewModel.expenseAmount.collectAsState()
 
+    val isRecording by viewModel.isRecording.collectAsState()
+
     val activity = LocalActivity.current
     var showPermissionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
 
-    var autoStopSignal by remember { mutableStateOf(0) }
 
-    val speechHelper = remember {
+    val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
+
+    var stopRecording: () -> Unit = {}
+
+    val speechHelper = remember(autoPauseEnabled) {
         SpeechRecognizerHelper(
             context = context,
-            onResult = { text -> viewModel.onSpeechResult(text) },
-            onError = { msg -> viewModel.onSpeechError(msg) },
+            onResult = { text ->
+                viewModel.onSpeechResult(text)
+                // Only auto-stop the button when Auto pause is ON
+                if (autoPauseEnabled) {
+                    stopRecording()
+                }
+            },
+            onError = { msg ->
+                viewModel.onSpeechError(msg)
+                // On error we *always* stop to avoid a stuck recording state
+                stopRecording()
+            },
             onAutoStop = {
-                // bump signal so AnimatedRecordButton stops visually
-                autoStopSignal++
+                if (autoPauseEnabled) {
+                    // Only auto-pause on 2s silence when setting is ON
+                    stopRecording()
+                }
+                // When Auto pause is OFF, ignore silence and leave the button running
             }
         )
     }
 
+
+    // Now that speechHelper exists, define what stopRecording actually does.
+    stopRecording = {
+        if (viewModel.isRecording.value) {
+            speechHelper.stop()
+            viewModel.onSpeechStop()
+        }
+    }
     DisposableEffect(Unit) {
         onDispose {
+            stopRecording()          // make sure button isn’t “stuck on” when leaving
             speechHelper.destroy()
         }
     }
+
 
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
@@ -198,17 +226,18 @@ fun HomeScreen(
             // Big record button + label
             item {
                 RecordSection(
-                    onStartSpeech = {
-                        viewModel.onSpeechStart()
-                        speechHelper.start()
-                    },
-                    onStopSpeech = {
-                        speechHelper.stop()
-                        viewModel.onSpeechStop()
-                    },
-                    externalStopSignal = autoStopSignal
+                    isRecording = isRecording,
+                    onToggleRecording = {
+                        if (isRecording) {
+                            stopRecording()
+                        } else {
+                            viewModel.onSpeechStart()
+                            speechHelper.start()
+                        }
+                    }
                 )
             }
+
 
 
 
@@ -368,9 +397,8 @@ private fun AiTipCard(aiTip: String) {
 
 @Composable
 private fun RecordSection(
-    onStartSpeech: () -> Unit,
-    onStopSpeech: () -> Unit,
-    externalStopSignal: Int
+    isRecording: Boolean,
+    onToggleRecording: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -384,10 +412,8 @@ private fun RecordSection(
             contentAlignment = Alignment.Center
         ) {
             AnimatedRecordButton(
-                onStart = onStartSpeech,
-                onStop = onStopSpeech,
-                onFinished = {},
-                externalStopSignal = externalStopSignal
+                isRecording = isRecording,
+                onToggle = onToggleRecording
             )
         }
         Text(

@@ -35,22 +35,10 @@ import kotlinx.coroutines.delay
 @Composable
 fun AnimatedRecordButton(
     totalDuration: Int = 50000,
-    onStart: () -> Unit = {},
-    onStop: () -> Unit = {},
-    onFinished: () -> Unit = {},
-    externalStopSignal: Int = 0
+    isRecording: Boolean,
+    onToggle: () -> Unit,
 ) {
-    var isRecording by remember { mutableStateOf(false) }
     var progress by remember { mutableStateOf(0f) }
-
-    // NEW: react to external auto-stop
-    LaunchedEffect(externalStopSignal) {
-        if (externalStopSignal > 0 && isRecording) {
-            isRecording = false
-            onStop()
-            onFinished()
-        }
-    }
 
     // 动态测量宽度
     var boxWidthPx by remember { mutableStateOf(0f) }
@@ -87,13 +75,12 @@ fun AnimatedRecordButton(
                 elapsed += frameTime
                 progress = elapsed / totalTime.toFloat()
             }
-            if (isRecording) {
-                isRecording = false
-                onStop()
-                onFinished()
-            }
-        } else progress = 0f
+            // when isRecording becomes false, this effect will restart
+        } else {
+            progress = 0f
+        }
     }
+
 
     Box(
         modifier = Modifier
@@ -153,16 +140,7 @@ fun AnimatedRecordButton(
         }
 
         Button(
-            onClick = {
-                if (!isRecording) {
-                    isRecording = true
-                    onStart()
-                } else {
-                    isRecording = false
-                    onStop()
-                    onFinished()
-                }
-            },
+            onClick = onToggle,
             shape = CircleShape,
             colors = ButtonDefaults.buttonColors(
                 containerColor = if (isRecording) Color(0xFF4F8CF9) else Color(0xFF6BA4FF),

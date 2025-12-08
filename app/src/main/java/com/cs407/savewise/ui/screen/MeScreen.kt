@@ -697,7 +697,7 @@ private fun VoiceInputScreen(
     ) { padding ->
         Column(Modifier.padding(padding)) {
             SettingsRow(
-                title = "Auto recording",
+                title = "Auto pause",
                 value = if (state.autoRecording) "On" else "Off",
                 trailing = {
                     Switch(checked = state.autoRecording, onCheckedChange = vm::setAutoRecording)
