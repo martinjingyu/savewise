@@ -44,6 +44,11 @@ import androidx.compose.ui.unit.sp
 import java.time.LocalDate
 import androidx.compose.runtime.DisposableEffect
 import com.cs407.savewise.service.SpeechRecognizerHelper
+import androidx.compose.runtime.rememberCoroutineScope
+import com.cs407.savewise.service.WavAudioRecorder
+import com.cs407.savewise.service.WhisperApi
+import kotlinx.coroutines.launch
+import java.io.File
 
 
 
@@ -73,6 +78,20 @@ fun HomeScreen(
 
 
     val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
+
+    val scope = rememberCoroutineScope()
+
+    // Manual recording mode (no auto-pause) uses raw audio + Whisper
+    val audioFile = remember { File(context.cacheDir, "expense_voice.wav") }
+
+    val whisperRecorder = remember {
+        WavAudioRecorder(
+            context = context,
+            file = audioFile,
+            onError = { msg -> viewModel.onSpeechError(msg) }
+        )
+    }
+
 
     var stopRecording: () -> Unit = {}
 
@@ -109,12 +128,20 @@ fun HomeScreen(
             viewModel.onSpeechStop()
         }
     }
-    DisposableEffect(Unit) {
+    DisposableEffect(autoPauseEnabled) {
         onDispose {
-            stopRecording()          // make sure button isn’t “stuck on” when leaving
-            speechHelper.destroy()
+            if (autoPauseEnabled) {
+                // SpeechRecognizer mode
+                stopRecording()
+                speechHelper.destroy()
+            } else {
+                // Manual Whisper mode – just ensure we’re not still recording
+                whisperRecorder.stop()
+                viewModel.onSpeechStop()
+            }
         }
     }
+
 
 
 
@@ -229,14 +256,39 @@ fun HomeScreen(
                 RecordSection(
                     isRecording = isRecording,
                     onToggleRecording = {
-                        if (isRecording) {
-                            stopRecording()
+                        if (autoPauseEnabled) {
+                            // ✅ Auto-pause mode: use SpeechRecognizer
+                            if (isRecording) {
+                                stopRecording()
+                            } else {
+                                viewModel.onSpeechStart()
+                                speechHelper.start()
+                            }
                         } else {
-                            viewModel.onSpeechStart()
-                            speechHelper.start()
+                            // ✅ Manual mode: use WavAudioRecorder + Whisper, NO auto-pause
+                            if (isRecording) {
+                                // User taps to STOP
+                                viewModel.onSpeechStop()
+                                whisperRecorder.stop()
+
+                                // Transcribe with Whisper and feed it into ViewModel
+                                scope.launch {
+                                    try {
+                                        val text = WhisperApi.transcribe(audioFile)
+                                        viewModel.onSpeechResult(text)
+                                    } catch (e: Exception) {
+                                        viewModel.onSpeechError("Transcription failed: ${e.message}")
+                                    }
+                                }
+                            } else {
+                                // User taps to START
+                                viewModel.onSpeechStart()
+                                whisperRecorder.start()
+                            }
                         }
                     }
                 )
+
             }
 
 
