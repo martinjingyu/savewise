@@ -73,6 +73,7 @@ import com.cs407.savewise.viewModel.ViewModel
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.CenterAlignedTopAppBar
 
 
 /* --------------------- ROUTES --------------------- */
@@ -83,7 +84,6 @@ private object MeRoutes {
     const val Storage = "me/storage"
     const val ProfilePicture = "me/profile/picture"
     const val ProfileName = "me/profile/name"
-    const val ProfileRegion = "me/profile/region"
     const val ProfilePassword = "me/profile/password"
     const val Notifications = "me/Notifications"
     const val AppearanceAndTheme = "me/AppearanceAndTheme"
@@ -127,7 +127,6 @@ fun MeScreen(
                 onBack = { nav.navigateUp() },
                 onOpenProfilePicture = { nav.navigate(MeRoutes.ProfilePicture) },
                 onOpenName = { nav.navigate(MeRoutes.ProfileName) },
-                onOpenRegion = { nav.navigate(MeRoutes.ProfileRegion) },
                 onOpenPassword = { nav.navigate(MeRoutes.ProfilePassword) }
             )
         }
@@ -139,9 +138,7 @@ fun MeScreen(
         composable(MeRoutes.ProfileName) {
             ProfileNameScreen(vm = vm, onBack = { nav.navigateUp() })
         }
-        composable(MeRoutes.ProfileRegion) {
-            ProfileRegionScreen(vm = vm, onBack = { nav.navigateUp() })
-        }
+
         composable(MeRoutes.ProfilePassword) {
             ChangePasswordScreen(vm = vm, onBack = { nav.navigateUp() })
         }
@@ -234,7 +231,7 @@ private fun MeRootScreen(
         )
     }
 
-    Scaffold(topBar = { TopAppBar(title = { Text("Settings") }) }) { padding ->
+    Scaffold(topBar = { CenterAlignedTopAppBar(title = { Text("Settings") }) }) { padding ->
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
@@ -250,6 +247,7 @@ private fun MeRootScreen(
                 HighlightUserRow(
                     title = name,
                     subtitle = "Tap to edit",
+                    avatarUri = state.profilePictureUri,
                     onClick = onOpenProfile
                 )
             }
@@ -281,7 +279,6 @@ private fun ProfileScreen(
     onBack: () -> Unit,
     onOpenProfilePicture: () -> Unit,
     onOpenName: () -> Unit,
-    onOpenRegion: () -> Unit,
     onOpenPassword: () -> Unit
 ) {
     val state by vm.uiState.collectAsState()
@@ -309,7 +306,6 @@ private fun ProfileScreen(
                     onClick = onOpenName
                 )
             }
-            item { SettingsRow(title = "Region", onClick = onOpenRegion) }
             item { SettingsRow(title = "Change your password", onClick = onOpenPassword) }
         }
     }
@@ -500,30 +496,7 @@ private fun ProfileNameScreen(vm: MeViewModel, onBack: () -> Unit) {
 }
 
 
-@Composable
-private fun ProfileRegionScreen(vm: MeViewModel, onBack: () -> Unit) {
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Region") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        Box(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding),
-            contentAlignment = Alignment.Center
-        ) {
-            Text("TODO: pick region UI")
-        }
-    }
-}
+
 
 @Composable
 private fun ChangePasswordScreen(vm: MeViewModel, onBack: () -> Unit) {
@@ -724,17 +697,14 @@ private fun VoiceInputScreen(
     ) { padding ->
         Column(Modifier.padding(padding)) {
             SettingsRow(
-                title = "Auto recording",
+                title = "Auto pause",
                 value = if (state.autoRecording) "On" else "Off",
                 trailing = {
                     Switch(checked = state.autoRecording, onCheckedChange = vm::setAutoRecording)
                 },
                 onClick = { vm.setAutoRecording(!state.autoRecording) }
             )
-            SettingsRow(
-                title = "Language",
-                value = state.language,
-                onClick = { /* language list later */ })
+
             SettingsRow(
                 title = "Recording storage",
                 value = when (state.recordingStorageDays) {
@@ -1195,8 +1165,12 @@ private fun HFAScreen(onBack: () -> Unit) {
 
 /* --------------------- REUSABLE ROWS --------------------- */
 @Composable
-private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Unit) {
-
+private fun HighlightUserRow(
+    title: String,
+    subtitle: String?,
+    avatarUri: String?,
+    onClick: () -> Unit
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(24.dp),
@@ -1209,24 +1183,41 @@ private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Un
             modifier = Modifier.padding(horizontal = 16.dp, vertical = 16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
+            // Avatar
             Box(
                 modifier = Modifier
                     .size(40.dp)
                     .clip(CircleShape)
-                    .background(MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)),
+                    .background(
+                        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+                    ),
                 contentAlignment = Alignment.Center
             ) {
-                Icon(
-                    imageVector = Icons.Outlined.AccountCircle,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary
-                )
+                if (avatarUri != null) {
+                    Image(
+                        painter = rememberAsyncImagePainter(avatarUri),
+                        contentDescription = "Profile picture",
+                        modifier = Modifier.fillMaxSize(),
+                        contentScale = ContentScale.Crop
+                    )
+                } else {
+                    Icon(
+                        imageVector = Icons.Outlined.AccountCircle,
+                        contentDescription = null,
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                }
             }
+
             Spacer(Modifier.width(12.dp))
+
+            // Texts
             Column(Modifier.weight(1f)) {
                 Text(
                     text = title,
-                    style = MaterialTheme.typography.bodyLarge.copy(fontWeight = FontWeight.Medium),
+                    style = MaterialTheme.typography.bodyLarge.copy(
+                        fontWeight = FontWeight.Medium
+                    ),
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
@@ -1239,6 +1230,8 @@ private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Un
                     )
                 }
             }
+
+            // Chevron
             Icon(
                 imageVector = Icons.Outlined.ChevronRight,
                 contentDescription = null,
@@ -1247,6 +1240,7 @@ private fun HighlightUserRow(title: String, subtitle: String?, onClick: () -> Un
         }
     }
 }
+
 
 @Composable
 private fun SettingsSectionCard(

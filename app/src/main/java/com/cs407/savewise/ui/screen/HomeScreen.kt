@@ -42,6 +42,14 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import java.time.LocalDate
+import androidx.compose.runtime.DisposableEffect
+import com.cs407.savewise.service.SpeechRecognizerHelper
+import androidx.compose.runtime.rememberCoroutineScope
+import com.cs407.savewise.service.WavAudioRecorder
+import com.cs407.savewise.service.WhisperApi
+import kotlinx.coroutines.launch
+import java.io.File
+
 
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -62,9 +70,80 @@ fun HomeScreen(
     val expenseCategory by viewModel.expenseCategory.collectAsState()
     val expenseAmount by viewModel.expenseAmount.collectAsState()
 
+    val isRecording by viewModel.isRecording.collectAsState()
+
     val activity = LocalActivity.current
     var showPermissionDialog by remember { mutableStateOf(false) }
     val context = LocalContext.current
+
+
+    val autoPauseEnabled by viewModel.autoPauseEnabled.collectAsState()
+
+    val scope = rememberCoroutineScope()
+
+    // Manual recording mode (no auto-pause) uses raw audio + Whisper
+    val audioFile = remember { File(context.cacheDir, "expense_voice.wav") }
+
+    val whisperRecorder = remember {
+        WavAudioRecorder(
+            context = context,
+            file = audioFile,
+            onError = { msg -> viewModel.onSpeechError(msg) }
+        )
+    }
+
+
+    var stopRecording: () -> Unit = {}
+
+    val speechHelper = remember(autoPauseEnabled) {
+        SpeechRecognizerHelper(
+            context = context,
+            onResult = { text ->
+                viewModel.onSpeechResult(text)
+                // Only auto-stop the button when Auto pause is ON
+                if (autoPauseEnabled) {
+                    stopRecording()
+                }
+            },
+            onError = { msg ->
+                viewModel.onSpeechError(msg)
+                // On error we *always* stop to avoid a stuck recording state
+                stopRecording()
+            },
+            onAutoStop = {
+                if (autoPauseEnabled) {
+                    // Only auto-pause on 2s silence when setting is ON
+                    stopRecording()
+                }
+                // When Auto pause is OFF, ignore silence and leave the button running
+            }
+        )
+    }
+
+
+    // Now that speechHelper exists, define what stopRecording actually does.
+    stopRecording = {
+        if (viewModel.isRecording.value) {
+            speechHelper.stop()
+            viewModel.onSpeechStop()
+        }
+    }
+    DisposableEffect(autoPauseEnabled) {
+        onDispose {
+            if (autoPauseEnabled) {
+                // SpeechRecognizer mode
+                stopRecording()
+                speechHelper.destroy()
+            } else {
+                // Manual Whisper mode – just ensure we’re not still recording
+                whisperRecorder.stop()
+                viewModel.onSpeechStop()
+            }
+        }
+    }
+
+
+
 
     val audioPermissionLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestPermission(),
@@ -175,10 +254,44 @@ fun HomeScreen(
             // Big record button + label
             item {
                 RecordSection(
-                    onStartSpeech = onStartSpeech,
-                    onStopSpeech = onStopSpeech
+                    isRecording = isRecording,
+                    onToggleRecording = {
+                        if (autoPauseEnabled) {
+                            // ✅ Auto-pause mode: use SpeechRecognizer
+                            if (isRecording) {
+                                stopRecording()
+                            } else {
+                                viewModel.onSpeechStart()
+                                speechHelper.start()
+                            }
+                        } else {
+                            // ✅ Manual mode: use WavAudioRecorder + Whisper, NO auto-pause
+                            if (isRecording) {
+                                // User taps to STOP
+                                viewModel.onSpeechStop()
+                                whisperRecorder.stop()
+
+                                // Transcribe with Whisper and feed it into ViewModel
+                                scope.launch {
+                                    try {
+                                        val text = WhisperApi.transcribe(audioFile)
+                                        viewModel.onSpeechResult(text)
+                                    } catch (e: Exception) {
+                                        viewModel.onSpeechError("Transcription failed: ${e.message}")
+                                    }
+                                }
+                            } else {
+                                // User taps to START
+                                viewModel.onSpeechStart()
+                                whisperRecorder.start()
+                            }
+                        }
+                    }
                 )
+
             }
+
+
 
 
             // Monthly chart
@@ -379,8 +492,8 @@ private fun AiTipCard(aiTip: String, viewModel: HomeViewModel) {
 
 @Composable
 private fun RecordSection(
-    onStartSpeech: () -> Unit,
-    onStopSpeech: () -> Unit
+    isRecording: Boolean,
+    onToggleRecording: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -390,13 +503,12 @@ private fun RecordSection(
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
         Box(
-            modifier = Modifier.fillMaxWidth(0.6f), // 这里将宽度限制为屏幕宽度的 50%，您可以根据需要调整这个比例（例如 0.4f 或 0.6f）
+            modifier = Modifier.fillMaxWidth(0.6f),
             contentAlignment = Alignment.Center
         ) {
             AnimatedRecordButton(
-                onStart = onStartSpeech,
-                onStop = onStopSpeech,
-                onFinished = {}
+                isRecording = isRecording,
+                onToggle = onToggleRecording
             )
         }
         Text(
@@ -407,6 +519,7 @@ private fun RecordSection(
         )
     }
 }
+
 
 @Composable
 private fun EmptyStateCard(onAddClick: () -> Unit) {

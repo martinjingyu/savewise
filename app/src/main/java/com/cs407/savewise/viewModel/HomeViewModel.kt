@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import org.json.JSONObject
-
+import com.cs407.savewise.data.UserPreferencesRepository
 class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
 
@@ -38,14 +38,25 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
     private val _speechText = MutableStateFlow("")
     val speechText: StateFlow<String> = _speechText
+    private val _isRecording = MutableStateFlow(false)
+    val isRecording: StateFlow<Boolean> = _isRecording
     val recentExpenses: StateFlow<List<ExpenseRecord>> = _recentExpenses
     val userName: StateFlow<String> = _name
     val aiTip: StateFlow<String> = _aiTip
+    private val userPreferencesRepository = UserPreferencesRepository(application)
 
+    private val _autoPauseEnabled = MutableStateFlow(false)
+    val autoPauseEnabled: StateFlow<Boolean> = _autoPauseEnabled
 
     val shouldOpenAddDialog: StateFlow<Boolean> = _shouldOpenAddDialog
     init {
         observeAuthChanges()
+
+        viewModelScope.launch {
+            userPreferencesRepository.preferencesFlow.collect { prefs ->
+                _autoPauseEnabled.value = prefs.autoRecording
+            }
+        }
     }
 
     private fun observeAuthChanges() {
@@ -149,15 +160,18 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     fun onSpeechError(error: String) {
         println("❌【语音错误】：$error")
         _aiTip.value = "Speech error: $error"
+        _isRecording.value = false
     }
 
     fun onSpeechStart() {
         println("🎙️【开始录音】")
         _aiTip.value = "Listening..."
+        _isRecording.value = true
     }
 
     fun onSpeechStop() {
         println("🛑【停止录音】")
+        _isRecording.value = false
     }
     fun handelUserInput(string: String) {
         viewModelScope.launch {

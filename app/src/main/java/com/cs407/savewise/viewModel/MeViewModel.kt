@@ -29,7 +29,6 @@ data class MeUiState(
     val userName: String = "User Name",
     val region: String = "United States",
     val autoRecording: Boolean = false,
-    val language: String = "English",
     val recordingStorageDays: Int = 7, // 0,1,3,7,30
     val displayName: String = "",
     val profilePictureUri: String? = null,
@@ -52,7 +51,6 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
                     state.copy(
                         region = stored.region,
                         autoRecording = stored.autoRecording,
-                        language = stored.language,
                         recordingStorageDays = stored.recordingStorageDays,
                         themeMode = stored.themeMode,
                         autoBackupEnabled = stored.autoBackupEnabled,
@@ -82,10 +80,7 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
         _uiState.update { it.copy(autoRecording = enabled) }
         viewModelScope.launch { prefs.setAutoRecording(enabled) }
     }
-    fun setLanguage(lang: String) {
-        _uiState.update { it.copy(language = lang) }
-        viewModelScope.launch { prefs.setLanguage(lang) }
-    }
+
     fun setRecordingStorageDays(days: Int) {
         _uiState.update { it.copy(recordingStorageDays = days) }
         viewModelScope.launch { prefs.setRecordingStorageDays(days) }

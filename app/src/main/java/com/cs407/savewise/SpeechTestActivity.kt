@@ -56,22 +56,31 @@ class SpeechTestActivity : FragmentActivity() {
                     modifier = Modifier.padding(bottom = 32.dp)
                 )
 
-                AnimatedRecordButton(
-                    onStart = {
-                        resultText = "Recording..."
-                        recorder.start()
-                    },
-                    onStop = {
-                        resultText = "Processing..."
-                        recorder.stop()
+                var isRecording by remember { mutableStateOf(false) }
 
-                        // 调用 Whisper
-                        scope.launch {
-                            val text = WhisperApi.transcribe(audioFile)
-                            resultText = "Result:\n$text"
+                AnimatedRecordButton(
+                    isRecording = isRecording,
+                    onToggle = {
+                        if (!isRecording) {
+                            // START recording
+                            isRecording = true
+                            resultText = "Recording..."
+                            recorder.start()
+                        } else {
+                            // STOP recording
+                            isRecording = false
+                            resultText = "Processing..."
+                            recorder.stop()
+
+                            // Call Whisper
+                            scope.launch {
+                                val text = WhisperApi.transcribe(audioFile)
+                                resultText = "Result:\n$text"
+                            }
                         }
                     }
                 )
+
             }
         }
     }
