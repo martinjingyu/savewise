@@ -85,17 +85,11 @@ private object MeRoutes {
     const val ProfilePicture = "me/profile/picture"
     const val ProfileName = "me/profile/name"
     const val ProfilePassword = "me/profile/password"
-    const val Notifications = "me/Notifications"
     const val AppearanceAndTheme = "me/AppearanceAndTheme"
     const val DataAndBackup = "me/DataAndBackup"
     const val HFA = "me/HFA"
     const val DeveloperContact = "me/developerContact"
-}
-
-private enum class NotificationMode {
-    AlwaysOn,
-    OnlyWhenRunning,
-    AlwaysOff
+    const val HowToUse = "me/howToUse"
 }
 
 
@@ -114,7 +108,6 @@ fun MeScreen(
                 vm = vm,
                 onOpenProfile = { nav.navigate(MeRoutes.Profile) },
                 onOpenVoice = { nav.navigate(MeRoutes.Voice) },
-                onOpenNotifications = { nav.navigate(MeRoutes.Notifications) },
                 onOpenAppearanceAndTheme = { nav.navigate(MeRoutes.AppearanceAndTheme) },
                 onOpenDataAndBackup = { nav.navigate(MeRoutes.DataAndBackup) },
                 onOpenHFA = { nav.navigate(MeRoutes.HFA) },
@@ -156,11 +149,6 @@ fun MeScreen(
                 vm = vm,
                 onBack = { nav.navigateUp() })
         }
-        composable(MeRoutes.Notifications) {
-            NotificationsScreen(
-                onBack = { nav.navigateUp() }
-            )
-        }
         composable(MeRoutes.AppearanceAndTheme) {
             AppearanceAndThemeScreen(
                 vm = vm,
@@ -178,7 +166,8 @@ fun MeScreen(
         composable(MeRoutes.HFA) {
             HFAScreen(
                 onBack = { nav.navigateUp() },
-                onOpenDeveloperContact = { nav.navigate(MeRoutes.DeveloperContact) }
+                onOpenDeveloperContact = { nav.navigate(MeRoutes.DeveloperContact) },
+                onOpenHowTo = { nav.navigate(MeRoutes.HowToUse) }
             )
         }
 
@@ -186,6 +175,10 @@ fun MeScreen(
             DeveloperContactScreen(
                 onBack = { nav.navigateUp() }
             )
+        }
+
+        composable(MeRoutes.HowToUse) {
+            HowToUseScreen(onBack = { nav.navigateUp() })
         }
     }
 }
@@ -196,7 +189,6 @@ private fun MeRootScreen(
     vm: MeViewModel,
     onOpenProfile: () -> Unit,
     onOpenVoice: () -> Unit,
-    onOpenNotifications: () -> Unit,
     onOpenAppearanceAndTheme: () -> Unit,
     onOpenDataAndBackup: () -> Unit,
     onOpenHFA: () -> Unit,
@@ -208,7 +200,6 @@ private fun MeRootScreen(
 
     val rows = listOf(
         "Voice Input" to onOpenVoice,
-        "Notifications" to onOpenNotifications,
         "Appearance & Theme" to onOpenAppearanceAndTheme,
         "Data & Backup" to onOpenDataAndBackup,
         "Help, Feedback & About" to onOpenHFA
@@ -773,82 +764,6 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
 }
 
 
-@Composable
-private fun NotificationsScreen(onBack: () -> Unit) {
-    var mode by remember { mutableStateOf(NotificationMode.OnlyWhenRunning) }
-
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text("Notification") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                }
-            )
-        }
-    ) { padding ->
-        LazyColumn(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-
-            // Always on
-            item {
-                SettingsRow(
-                    title = "Always on",
-                    trailing = {
-                        Switch(
-                            checked = mode == NotificationMode.AlwaysOn,
-                            onCheckedChange = { checked ->
-                                if (checked) mode = NotificationMode.AlwaysOn
-                            }
-                        )
-                    },
-                    onClick = { mode = NotificationMode.AlwaysOn }
-                )
-            }
-
-            // Only on when running
-            item {
-                SettingsRow(
-                    title = "Only on when running",
-                    trailing = {
-                        Switch(
-                            checked = mode == NotificationMode.OnlyWhenRunning,
-                            onCheckedChange = { checked ->
-                                if (checked) mode = NotificationMode.OnlyWhenRunning
-                            }
-                        )
-                    },
-                    onClick = { mode = NotificationMode.OnlyWhenRunning }
-                )
-            }
-
-            // Always off
-            item {
-                SettingsRow(
-                    title = "Always off",
-                    trailing = {
-                        Switch(
-                            checked = mode == NotificationMode.AlwaysOff,
-                            onCheckedChange = { checked ->
-                                if (checked) mode = NotificationMode.AlwaysOff
-                            }
-                        )
-                    },
-                    onClick = { mode = NotificationMode.AlwaysOff }
-                )
-            }
-        }
-    }
-}
-
 
 @Composable
 private fun AppearanceAndThemeScreen(
@@ -1025,7 +940,8 @@ private fun DataAndBackupScreen(vm: MeViewModel, onBack: () -> Unit) {
 @Composable
 private fun HFAScreen(
     onBack: () -> Unit,
-    onOpenDeveloperContact: () -> Unit
+    onOpenDeveloperContact: () -> Unit,
+    onOpenHowTo: () -> Unit
 ) {
     var showFeedbackDialog by remember { mutableStateOf(false) }
 
@@ -1117,7 +1033,7 @@ private fun HFAScreen(
             item {
                 SettingsRow(
                     title = "How to use this app",
-                    onClick = { /* TODO: open guide later */ }
+                    onClick = onOpenHowTo
                 )
             }
 
@@ -1153,6 +1069,58 @@ private fun HFAScreen(
                     title = "Developer & contact",
                     onClick = onOpenDeveloperContact
                 )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HowToUseScreen(onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("How to use this app") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        LazyColumn(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            item {
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(16.dp),
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(10.dp)
+                    ) {
+                        Text(
+                            text = "Quick start",
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        Text("1) Sign in or sign up; add your display name if prompted so it shows across the app.")
+                        Text("2) Home: review the summary and AI tip. Tap + to add manually or use the mic (allow mic access) to dictate an expense; adjust the auto-filled info and save.")
+                        Text("3) Expenses: browse history. Tap the filter icon to search or filter by category, amount, or date. Tap an item to edit; long-press to delete.")
+                        Text("4) Settings (Me): update profile, toggle auto-pause for voice, choose the recording cleanup window, theme, and backup preferences. Use Data & Backup to sync now or limit to Wi-Fi.")
+                        Text("5) Need help? Use Send feedback here or Developer & contact for team info.")
+                    }
+                }
             }
         }
     }
@@ -1428,4 +1396,3 @@ private fun SettingsRow(
         )
     }
 }
-

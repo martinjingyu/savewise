@@ -49,12 +49,15 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
     val autoPauseEnabled: StateFlow<Boolean> = _autoPauseEnabled
 
     val shouldOpenAddDialog: StateFlow<Boolean> = _shouldOpenAddDialog
+    private val _recordingStorageDays = MutableStateFlow(7)
+    val recordingStorageDays: StateFlow<Int> = _recordingStorageDays
     init {
         observeAuthChanges()
 
         viewModelScope.launch {
             userPreferencesRepository.preferencesFlow.collect { prefs ->
                 _autoPauseEnabled.value = prefs.autoRecording
+                _recordingStorageDays.value = prefs.recordingStorageDays
             }
         }
     }
