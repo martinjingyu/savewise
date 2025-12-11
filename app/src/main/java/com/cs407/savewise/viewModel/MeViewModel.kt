@@ -17,6 +17,11 @@ import com.google.firebase.auth.auth
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.tasks.await
 import com.cs407.savewise.data.UserPreferencesRepository
+import com.cs407.savewise.service.RecordingStorageManager
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
+import java.io.File
+import java.io.InputStream
 
 
 enum class AppThemeMode {
@@ -39,8 +44,10 @@ data class MeUiState(
 
 class MeViewModel(application: Application) : AndroidViewModel(application) {
     private val auth: FirebaseAuth = FirebaseAuth.getInstance()
-    private val prefs = UserPreferencesRepository(application.applicationContext)
-    private val expenseRepo = com.cs407.savewise.data.ExpenseRepository(application.applicationContext)
+    private val appContext = application.applicationContext
+    private val prefs = UserPreferencesRepository(appContext)
+    private val expenseRepo = com.cs407.savewise.data.ExpenseRepository(appContext)
+    private val recordingStorage = RecordingStorageManager(appContext)
     private val _uiState = MutableStateFlow(MeUiState())
 
     val uiState: StateFlow<MeUiState> = _uiState
@@ -54,10 +61,12 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
                         recordingStorageDays = stored.recordingStorageDays,
                         themeMode = stored.themeMode,
                         autoBackupEnabled = stored.autoBackupEnabled,
-                        wifiOnlyBackup = stored.wifiOnlyBackup
+                        wifiOnlyBackup = stored.wifiOnlyBackup,
+                        profilePictureUri = stored.profilePicturePath
                     )
                 }
                 expenseRepo.setAutoSyncEnabled(stored.autoBackupEnabled)
+                recordingStorage.cleanupOlderThan(stored.recordingStorageDays)
             }
         }
         refreshDisplayNameFromFirebase()
@@ -83,14 +92,32 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
 
     fun setRecordingStorageDays(days: Int) {
         _uiState.update { it.copy(recordingStorageDays = days) }
-        viewModelScope.launch { prefs.setRecordingStorageDays(days) }
+        viewModelScope.launch {
+            prefs.setRecordingStorageDays(days)
+            recordingStorage.cleanupOlderThan(days)
+        }
     }
     fun updateProfilePicture(uri: Uri) {
-        _uiState.update { it.copy(profilePictureUri = uri.toString()) }
+        viewModelScope.launch {
+            val current = _uiState.value.profilePictureUri
+            val savedPath = withContext(Dispatchers.IO) { copyUriToInternal(uri) }
+            if (savedPath != null) {
+                prefs.setProfilePicturePath(savedPath)
+                _uiState.update { it.copy(profilePictureUri = savedPath) }
+                // remove previous stored file
+                if (current != null && current != savedPath) {
+                    File(current).delete()
+                }
+            }
+        }
     }
 
     fun clearProfilePicture() {
-        _uiState.update { it.copy(profilePictureUri = null) }
+        viewModelScope.launch {
+            _uiState.value.profilePictureUri?.let { File(it).delete() }
+            prefs.setProfilePicturePath(null)
+            _uiState.update { it.copy(profilePictureUri = null) }
+        }
     }
 
     fun changePassword(
@@ -229,6 +256,24 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
                 // Handle exception, e.g., show an error message
                 Log.e("MeViewModel", "Error deleting account", e)
             }
+        }
+    }
+
+    private fun copyUriToInternal(uri: Uri): String? {
+        return try {
+            val resolver = appContext.contentResolver
+            val inputStream: InputStream = resolver.openInputStream(uri) ?: return null
+            val dir = File(appContext.filesDir, "profile").apply { mkdirs() }
+            val dest = File(dir, "profile_${System.currentTimeMillis()}.jpg")
+            inputStream.use { input ->
+                dest.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            }
+            dest.absolutePath
+        } catch (e: Exception) {
+            Log.e("MeViewModel", "Failed to save profile picture", e)
+            null
         }
     }
 }

@@ -47,6 +47,7 @@ import com.cs407.savewise.service.SpeechRecognizerHelper
 import androidx.compose.runtime.rememberCoroutineScope
 import com.cs407.savewise.service.WavAudioRecorder
 import com.cs407.savewise.service.WhisperApi
+import com.cs407.savewise.service.RecordingStorageManager
 import kotlinx.coroutines.launch
 import java.io.File
 
@@ -69,6 +70,7 @@ fun HomeScreen(
     val expenseTitle by viewModel.expenseTitle.collectAsState()
     val expenseCategory by viewModel.expenseCategory.collectAsState()
     val expenseAmount by viewModel.expenseAmount.collectAsState()
+    val recordingStorageDays by viewModel.recordingStorageDays.collectAsState()
 
     val isRecording by viewModel.isRecording.collectAsState()
 
@@ -91,6 +93,7 @@ fun HomeScreen(
             onError = { msg -> viewModel.onSpeechError(msg) }
         )
     }
+    val recordingStorage = remember { RecordingStorageManager(context) }
 
 
     var stopRecording: () -> Unit = {}
@@ -267,18 +270,22 @@ fun HomeScreen(
                         } else {
                             // ✅ Manual mode: use WavAudioRecorder + Whisper, NO auto-pause
                             if (isRecording) {
-                                // User taps to STOP
-                                viewModel.onSpeechStop()
-                                whisperRecorder.stop()
+                            // User taps to STOP
+                            viewModel.onSpeechStop()
+                            whisperRecorder.stop()
 
-                                // Transcribe with Whisper and feed it into ViewModel
-                                scope.launch {
-                                    try {
-                                        val text = WhisperApi.transcribe(audioFile)
-                                        viewModel.onSpeechResult(text)
-                                    } catch (e: Exception) {
-                                        viewModel.onSpeechError("Transcription failed: ${e.message}")
-                                    }
+                            // Transcribe with Whisper and feed it into ViewModel
+                            scope.launch {
+                                try {
+                                    // save a local copy and prune old recordings based on settings
+                                    recordingStorage.saveCopy(audioFile)
+                                    recordingStorage.cleanupOlderThan(recordingStorageDays)
+
+                                    val text = WhisperApi.transcribe(audioFile)
+                                    viewModel.onSpeechResult(text)
+                                } catch (e: Exception) {
+                                    viewModel.onSpeechError("Transcription failed: ${e.message}")
+                                }
                                 }
                             } else {
                                 // User taps to START
