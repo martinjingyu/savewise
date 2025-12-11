@@ -89,6 +89,7 @@ private object MeRoutes {
     const val AppearanceAndTheme = "me/AppearanceAndTheme"
     const val DataAndBackup = "me/DataAndBackup"
     const val HFA = "me/HFA"
+    const val DeveloperContact = "me/developerContact"
 }
 
 private enum class NotificationMode {
@@ -176,6 +177,13 @@ fun MeScreen(
         }
         composable(MeRoutes.HFA) {
             HFAScreen(
+                onBack = { nav.navigateUp() },
+                onOpenDeveloperContact = { nav.navigate(MeRoutes.DeveloperContact) }
+            )
+        }
+
+        composable(MeRoutes.DeveloperContact) {
+            DeveloperContactScreen(
                 onBack = { nav.navigateUp() }
             )
         }
@@ -706,7 +714,7 @@ private fun VoiceInputScreen(
             )
 
             SettingsRow(
-                title = "Recording storage",
+                title = "Expenses record clean preference",
                 value = when (state.recordingStorageDays) {
                     0 -> "Never"
                     1 -> "One day"
@@ -735,7 +743,7 @@ private fun RecordingStorageScreen(vm: MeViewModel, onBack: () -> Unit) {
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text("Recording Storage") },
+                title = { Text("Clean expenses record exceeds") },
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(
@@ -1009,25 +1017,40 @@ private fun DataAndBackupScreen(vm: MeViewModel, onBack: () -> Unit) {
 
             item { Spacer(Modifier.height(32.dp)) }
 
-            // ---- Danger zone ----
-            item {
 
-                Spacer(Modifier.height(8.dp))
-                OutlinedButton(
-                    onClick = { /* TODO: confirm & delete data later */ }
-                ) {
-                    Text(
-                        text = "Delete all local data",
-                        color = MaterialTheme.colorScheme.error
-                    )
-                }
-            }
         }
     }
 }
 
 @Composable
-private fun HFAScreen(onBack: () -> Unit) {
+private fun HFAScreen(
+    onBack: () -> Unit,
+    onOpenDeveloperContact: () -> Unit
+) {
+    var showFeedbackDialog by remember { mutableStateOf(false) }
+
+    if (showFeedbackDialog) {
+        AlertDialog(
+            onDismissRequest = { showFeedbackDialog = false },
+            title = { Text("Send feedback") },
+            text = {
+                Column {
+                    Text("We'd love to hear from you.")
+                    Spacer(Modifier.height(8.dp))
+                    Text(
+                        text = "Contact email: SaveWise@gmail.com",
+                        fontWeight = FontWeight.SemiBold
+                    )
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { showFeedbackDialog = false }) {
+                    Text("OK")
+                }
+            }
+        )
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
@@ -1050,13 +1073,14 @@ private fun HFAScreen(onBack: () -> Unit) {
                 .padding(horizontal = 16.dp, vertical = 12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-
             // ---- About card ----
             item {
-                Surface(
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(16.dp),
-                    tonalElevation = 2.dp,
-                    modifier = Modifier.fillMaxWidth()
+                    colors = CardDefaults.cardColors(
+                        containerColor = MaterialTheme.colorScheme.surfaceVariant
+                    )
                 ) {
                     Column(
                         modifier = Modifier.padding(16.dp)
@@ -1093,14 +1117,7 @@ private fun HFAScreen(onBack: () -> Unit) {
             item {
                 SettingsRow(
                     title = "How to use this app",
-                    onClick = { /* TODO: open help later */ }
-                )
-            }
-
-            item {
-                SettingsRow(
-                    title = "FAQ",
-                    onClick = { /* TODO: open FAQ later */ }
+                    onClick = { /* TODO: open guide later */ }
                 )
             }
 
@@ -1117,13 +1134,13 @@ private fun HFAScreen(onBack: () -> Unit) {
             item {
                 SettingsRow(
                     title = "Send feedback",
-                    onClick = { /* TODO: open feedback form/email later */ }
+                    onClick = { showFeedbackDialog = true }
                 )
             }
 
             item { Spacer(Modifier.height(16.dp)) }
 
-            // ---- About / legal section ----
+            // ---- About / contact section ----
             item {
                 Text(
                     text = "About",
@@ -1134,33 +1151,107 @@ private fun HFAScreen(onBack: () -> Unit) {
             item {
                 SettingsRow(
                     title = "Developer & contact",
-                    onClick = { /* TODO: show contact info screen */ }
-                )
-            }
-
-            item {
-                SettingsRow(
-                    title = "Privacy policy",
-                    onClick = { /* TODO: open privacy policy */ }
-                )
-            }
-
-            item {
-                SettingsRow(
-                    title = "Terms of service",
-                    onClick = { /* TODO: open terms */ }
-                )
-            }
-
-            item {
-                SettingsRow(
-                    title = "Open source licenses",
-                    onClick = { /* TODO: open licenses */ }
+                    onClick = onOpenDeveloperContact
                 )
             }
         }
     }
 }
+
+@Composable
+private fun DeveloperContactScreen(onBack: () -> Unit) {
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text("Developer & Contact") },
+                navigationIcon = {
+                    IconButton(onClick = onBack) {
+                        Icon(
+                            Icons.AutoMirrored.Filled.ArrowBack,
+                            contentDescription = "Back"
+                        )
+                    }
+                }
+            )
+        }
+    ) { padding ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Development Team",
+                style = MaterialTheme.typography.titleMedium
+            )
+
+            DeveloperContactItem(
+                name = "Haowen Zheng",
+                email = "hzheng243@wisc.edu",
+                handle = "GitHub: 771515dc"
+            )
+            DeveloperContactItem(
+                name = "Jingyu Huang",
+                email = "jhuang664@wisc.edu",
+                handle = "GitHub: martinjingyu"
+            )
+            DeveloperContactItem(
+                name = "Junyan Zhou",
+                email = "jzhou466@wisc.edu",
+                handle = "GitHub: BakuninKropotkin"
+            )
+            DeveloperContactItem(
+                name = "Yuxiang Wu",
+                email = "ywu666@wisc.edu",
+                handle = "GitHub: FrancisWu-03"
+            )
+
+            Spacer(Modifier.height(8.dp))
+
+            Text(
+                text = "General contact: SaveWise@gmail.com",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun DeveloperContactItem(
+    name: String,
+    email: String,
+    handle: String
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(
+            containerColor = MaterialTheme.colorScheme.surface
+        )
+    ) {
+        Column(modifier = Modifier.padding(12.dp)) {
+            Text(
+                text = name,
+                style = MaterialTheme.typography.bodyMedium,
+                fontWeight = FontWeight.SemiBold
+            )
+            Spacer(Modifier.height(2.dp))
+            Text(
+                text = email,
+                style = MaterialTheme.typography.bodySmall
+            )
+            Text(
+                text = handle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
 
 
 /* --------------------- REUSABLE ROWS --------------------- */
