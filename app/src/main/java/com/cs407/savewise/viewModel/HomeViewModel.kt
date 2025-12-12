@@ -101,14 +101,6 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun clearExpenses() {
-        val uid = auth.currentUser?.uid ?: return
-        viewModelScope.launch {
-            _recentExpenses.value.forEach { exp ->
-                repository.deleteExpense(uid, exp.id)
-            }
-        }
-    }
 
     fun resetAddDialogFlag() {
         _shouldOpenAddDialog.value = false
@@ -121,6 +113,17 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
 
 
     fun onSpeechResult(text: String) {
+        val cleaned = text.trim()
+        if (cleaned.isBlank()) {
+            _aiTip.value = "No speech detected. Creating blank expense…"
+            _speechText.value = ""
+            _expenseTitle.value = ""
+            _expenseCategory.value = ""
+            _expenseAmount.value = 0.0
+            _shouldOpenAddDialog.value = true
+            _isRecording.value = false
+            return
+        }
         println("🎤【识别成功】：$text")
 
         _aiTip.value = "AI is analysing…"
