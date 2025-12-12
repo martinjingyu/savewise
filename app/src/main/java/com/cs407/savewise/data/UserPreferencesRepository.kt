@@ -34,7 +34,20 @@ class UserPreferencesRepository(private val context: Context) {
         val THEME_MODE: Preferences.Key<String> = stringPreferencesKey("theme_mode")
         val AUTO_BACKUP: Preferences.Key<Boolean> = booleanPreferencesKey("auto_backup_enabled")
         val WIFI_ONLY: Preferences.Key<Boolean> = booleanPreferencesKey("wifi_only_backup")
-        val PROFILE_PICTURE_PATH: Preferences.Key<String> = stringPreferencesKey("profile_picture_path")
+
+    }
+    private fun profilePictureKey(uid: String): Preferences.Key<String> =
+        stringPreferencesKey("profile_picture_path_$uid")
+
+    fun profilePicturePathFlow(uid: String): Flow<String?> =
+        context.userPrefsDataStore.data.map { prefs ->
+            prefs[profilePictureKey(uid)]?.takeIf { it.isNotBlank() }
+        }
+
+    suspend fun setProfilePicturePath(uid: String, path: String?) {
+        context.userPrefsDataStore.edit { prefs ->
+            prefs[profilePictureKey(uid)] = path ?: ""
+        }
     }
 
     val preferencesFlow: Flow<UserPreferences> = context.userPrefsDataStore.data.map { prefs ->
@@ -46,7 +59,6 @@ class UserPreferencesRepository(private val context: Context) {
             themeMode = prefs[Keys.THEME_MODE]?.let { stringToTheme(it) } ?: AppThemeMode.System,
             autoBackupEnabled = prefs[Keys.AUTO_BACKUP] ?: false,
             wifiOnlyBackup = prefs[Keys.WIFI_ONLY] ?: true,
-            profilePicturePath = prefs[Keys.PROFILE_PICTURE_PATH]?.takeIf { it.isNotBlank() }
         )
     }
 
@@ -78,9 +90,6 @@ class UserPreferencesRepository(private val context: Context) {
         context.userPrefsDataStore.edit { it[Keys.WIFI_ONLY] = enabled }
     }
 
-    suspend fun setProfilePicturePath(path: String?) {
-        context.userPrefsDataStore.edit { it[Keys.PROFILE_PICTURE_PATH] = path ?: "" }
-    }
 
     private fun stringToTheme(value: String): AppThemeMode =
         runCatching { AppThemeMode.valueOf(value) }.getOrDefault(AppThemeMode.System)

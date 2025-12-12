@@ -23,8 +23,10 @@ class SpeechRecognizerHelper(
     context: Context,
     private val onResult: (String) -> Unit,
     private val onError: (String) -> Unit,
+    private var stoppedByAutoSilence: Boolean = false,
     // 🔔 Called when we auto-stop because of silence (for the UI button)
     private val onAutoStop: (() -> Unit)? = null
+
 ) {
 
     private val recognizer: SpeechRecognizer = SpeechRecognizer.createSpeechRecognizer(context)
@@ -63,6 +65,17 @@ class SpeechRecognizerHelper(
             override fun onError(error: Int) {
                 stopSilenceWatcher()
                 isListening = false
+
+                val isNoSpeech =
+                    error == SpeechRecognizer.ERROR_NO_MATCH ||   // 7
+                            error == SpeechRecognizer.ERROR_SPEECH_TIMEOUT // 6
+
+                if (isNoSpeech) {
+                    // Auto-pause ON or user said nothing → treat as empty, not an error
+                    onResult("")
+                    return
+                }
+
                 onError("Error: $error")
             }
 
@@ -78,7 +91,7 @@ class SpeechRecognizerHelper(
                 if (!data.isNullOrEmpty()) {
                     onResult(data)
                 } else {
-                    onError("Nothing detected")
+                    onResult("")
                 }
             }
 
@@ -100,7 +113,7 @@ class SpeechRecognizerHelper(
      */
     fun start() {
         if (isListening) return
-
+        stoppedByAutoSilence = false
         isListening = true
         lastVoiceTime = SystemClock.elapsedRealtime()
 
@@ -152,6 +165,7 @@ class SpeechRecognizerHelper(
                 val idleMs = SystemClock.elapsedRealtime() - lastVoiceTime
                 if (idleMs >= 2000L) { // 2 seconds of silence
                     // Stop recognizer
+                    stoppedByAutoSilence = true
                     isListening = false
                     recognizer.stopListening()
 

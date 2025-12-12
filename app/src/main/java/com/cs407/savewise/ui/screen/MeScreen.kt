@@ -100,6 +100,10 @@ fun MeScreen(
     onLogout: () -> Unit,
     onDeleteAccount: () -> Unit
 ) {
+    LaunchedEffect(Unit) {
+        vm.refreshDisplayNameFromFirebase()
+    }
+
     val nav = rememberNavController()
 
     NavHost(navController = nav, startDestination = MeRoutes.Root) {
