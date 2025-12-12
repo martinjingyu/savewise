@@ -106,6 +106,12 @@ class HomeViewModel(application: Application) : AndroidViewModel(application) {
         _shouldOpenAddDialog.value = false
     }
 
+    fun clearExpenseInput() {
+        _expenseTitle.value = ""
+        _expenseCategory.value = ""
+        _expenseAmount.value = 0.0
+    }
+
 
     // ------------------------------------------------
     // 🔊 语音识别回调 —— 从 SpeechHelper 传进来

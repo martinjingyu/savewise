@@ -343,11 +343,13 @@ fun HomeScreen(
                 ),
                 onDismiss = {
                     showAddDialog = false
+                    viewModel.clearExpenseInput()
                     viewModel.resetAddDialogFlag()
                 },
                 onSave = { newExpense ->
                     viewModel.addExpense(newExpense)
                     showAddDialog = false
+                    viewModel.clearExpenseInput()
                     viewModel.resetAddDialogFlag()
                 }
             )

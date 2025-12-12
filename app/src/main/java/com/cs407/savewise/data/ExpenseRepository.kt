@@ -31,7 +31,10 @@ class ExpenseRepository(context: Context) {
         }
 
     suspend fun addExpense(ownerUid: String, record: ExpenseRecord) {
-        val entity = record.toEntity(
+        val finalRecord = record.copy(
+            category = record.category.ifBlank { "Others" }
+        )
+        val entity = finalRecord.toEntity(
             ownerUid = ownerUid,
             syncState = SyncState.DIRTY_INSERT,
             updatedAt = System.currentTimeMillis(),
