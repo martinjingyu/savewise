@@ -3,7 +3,6 @@ package com.cs407.savewise.viewModel
 import android.app.Application
 import android.net.Uri
 import android.util.Log
-import androidx.activity.result.launch
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.firebase.Firebase
@@ -22,6 +21,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 import java.io.File
 import java.io.InputStream
+import com.google.firebase.auth.FirebaseAuth.AuthStateListener
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
+
 
 
 enum class AppThemeMode {
@@ -51,7 +54,16 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
     private val _uiState = MutableStateFlow(MeUiState())
 
     val uiState: StateFlow<MeUiState> = _uiState
+    private val uidFlow = MutableStateFlow(auth.currentUser?.uid)
+
+    private val authListener = AuthStateListener { firebaseAuth ->
+        uidFlow.value = firebaseAuth.currentUser?.uid
+    }
+
     init {
+        auth.addAuthStateListener(authListener)
+
+        // 1) device-level prefs (region/theme/etc.)
         viewModelScope.launch {
             prefs.preferencesFlow.collect { stored ->
                 _uiState.update { state ->
@@ -62,14 +74,32 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
                         themeMode = stored.themeMode,
                         autoBackupEnabled = stored.autoBackupEnabled,
                         wifiOnlyBackup = stored.wifiOnlyBackup,
-                        profilePictureUri = stored.profilePicturePath
                     )
                 }
                 expenseRepo.setAutoSyncEnabled(stored.autoBackupEnabled)
                 recordingStorage.cleanupOlderThan(stored.recordingStorageDays)
             }
         }
+
+        // 2) per-user profile pic (changes when uid changes)
+        viewModelScope.launch {
+            uidFlow
+                .flatMapLatest { uid ->
+                    if (uid.isNullOrBlank()) flowOf(null)
+                    else prefs.profilePicturePathFlow(uid)
+                }
+                .collect { path ->
+                    _uiState.update { it.copy(profilePictureUri = path) }
+                }
+        }
+
         refreshDisplayNameFromFirebase()
+    }
+
+
+    override fun onCleared() {
+        super.onCleared()
+        auth.removeAuthStateListener(authListener)
     }
 
     fun refreshDisplayNameFromFirebase() {
@@ -99,26 +129,27 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
     }
     fun updateProfilePicture(uri: Uri) {
         viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
             val current = _uiState.value.profilePictureUri
             val savedPath = withContext(Dispatchers.IO) { copyUriToInternal(uri) }
+
             if (savedPath != null) {
-                prefs.setProfilePicturePath(savedPath)
+                prefs.setProfilePicturePath(uid, savedPath)
                 _uiState.update { it.copy(profilePictureUri = savedPath) }
-                // remove previous stored file
-                if (current != null && current != savedPath) {
-                    File(current).delete()
-                }
+                if (current != null && current != savedPath) File(current).delete()
             }
         }
     }
 
     fun clearProfilePicture() {
         viewModelScope.launch {
+            val uid = auth.currentUser?.uid ?: return@launch
             _uiState.value.profilePictureUri?.let { File(it).delete() }
-            prefs.setProfilePicturePath(null)
+            prefs.setProfilePicturePath(uid, null)
             _uiState.update { it.copy(profilePictureUri = null) }
         }
     }
+
 
     fun changePassword(
         currentPassword: String,
@@ -240,12 +271,11 @@ class MeViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun logout() {
-        // Sign out from Firebase
         auth.signOut()
 
-        //reset Me screen UI state to defaults
-        _uiState.value = MeUiState()
+        _uiState.update { it.copy(displayName = "User Name", userName = "User Name") }
     }
+
 
     fun deleteAccount() {
         viewModelScope.launch {
